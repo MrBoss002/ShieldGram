@@ -4,10 +4,10 @@
   "description": "All-in-one Telegram group management bot featuring dynamic Force-Sub, real-time join request auto-approval, welcome greetings, captcha, and custom rules.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
-  },
+  "build": "tsc",
+  "start": "node dist/bot/index.js",
+  "dev": "ts-node src/bot/index.ts"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MrBoss002/ShieldGram.git"
