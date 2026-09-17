@@ -1,13 +1,14 @@
+import * as http from "http";
 import { connectDB } from "../config/db";
 import { bot } from "./bot";
 
 // Dummy HTTP server to satisfy Render's port check on Free Web Services
 const PORT = process.env.PORT || 3000;
-http.createServer((_, res) => {
+http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("ShieldGram is running active!");
+  res.end("ShieldGram is active.");
 }).listen(PORT, () => {
-  console.log(`🌐 Dummy health-check server bound to port ${PORT}`);
+  console.log(`🌐 Health check server bound to port ${PORT}`);
 });
 
 const startServer = async () => {
