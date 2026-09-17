@@ -4,12 +4,10 @@ import { env } from "../../config/env";
 export const startHandler = new Composer();
 
 startHandler.command("start", async (ctx) => {
-  // Only handle in Private Chat
   if (ctx.chat.type !== "private") return;
 
-  const startPayload = ctx.match; // Deep-linking parameter (e.g. config_GROUPID)
+  const startPayload = ctx.match;
 
-  // Handle Deep-Linking route from groups: /start config_-100123456789
   if (startPayload && startPayload.startsWith("config_")) {
     const groupIdStr = startPayload.replace("config_", "");
     await ctx.reply(
@@ -24,9 +22,10 @@ startHandler.command("start", async (ctx) => {
     return;
   }
 
-  // Default Home Welcome Banner
+  const firstName = ctx.from?.first_name || "User";
+
   const welcomeText =
-    `👋 **Hello ${ctx.from.first_name}!**\n\n` +
+    `👋 **Hello ${firstName}!**\n\n` +
     `Welcome to **ShieldGram** — the ultimate security and management bot for Telegram groups and channels.\n\n` +
     `I can help you:\n` +
     `• Enforce Force-Sub requirements on group chats\n` +
@@ -42,8 +41,8 @@ startHandler.command("start", async (ctx) => {
     .text("ℹ️ About ShieldGram", "nav_about")
     .text("❓ Help & Setup", "nav_help")
     .row()
-    .url("🌐 Support Group", env.SUPPORT_GROUP)
-    .url("📢 Updates Channel", env.UPDATES_CHANNEL);
+    .url("🌐 Support", env.SUPPORT_GROUP)
+    .url("📢 Updates", env.UPDATES_CHANNEL);
 
   await ctx.reply(welcomeText, {
     parse_mode: "Markdown",
@@ -51,7 +50,6 @@ startHandler.command("start", async (ctx) => {
   });
 });
 
-// Navigation Callbacks (In-Place Edit)
 startHandler.callbackQuery("nav_about", async (ctx) => {
   const aboutText =
     `ℹ️ **About ShieldGram**\n\n` +
@@ -100,8 +98,8 @@ startHandler.callbackQuery("nav_home", async (ctx) => {
     .text("ℹ️ About ShieldGram", "nav_about")
     .text("❓ Help & Setup", "nav_help")
     .row()
-    .url("🌐 Support Group", env.SUPPORT_GROUP)
-    .url("📢 Updates Channel", env.UPDATES_CHANNEL);
+    .url("🌐 Support", env.SUPPORT_GROUP)
+    .url("📢 Updates", env.UPDATES_CHANNEL);
 
   await ctx.editMessageText(welcomeText, {
     parse_mode: "Markdown",
