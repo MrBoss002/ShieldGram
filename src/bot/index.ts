@@ -10,7 +10,7 @@ const startServer = async () => {
   // Start Long Polling Bot Instance
   console.log("🚀 Starting ShieldGram Bot (@ShieldGramxBot)...");
   await bot.start({
-    onStart: (botInfo) => {
+    onStart: (botInfo: any) => {
       console.log(`✅ ShieldGram is live as @${botInfo.username}`);
     },
   });
