@@ -1,5 +1,5 @@
-import { connectDB } from "./config/db";
-import { bot } from "./bot/bot";
+import { connectDB } from "../config/db";
+import { bot } from "./bot";
 
 const startServer = async () => {
   console.log("🛡️ Initializing ShieldGram Engine...");
