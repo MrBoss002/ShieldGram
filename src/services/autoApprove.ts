@@ -1,40 +1,27 @@
-import { Bot, Context } from "grammy";
+import { Api } from "grammy";
 
-/**
- * Handles incoming join requests automatically in real time.
- */
 export const handleAutoApprove = async (
-  bot: Bot,
-  ctx: Context,
+  api: Api,
+  ctx: any,
   sendWelcomePm: boolean
 ): Promise<void> => {
-  if (!ctx.chatJoinRequest) return;
-
-  const { chat, user } = ctx.chatJoinRequest;
-
   try {
-    // Approve the join request natively via Bot API
-    await bot.api.approveChatJoinRequest(chat.id, user.id);
-    console.log(
-      `[AutoApprove] Approved user ${user.first_name} (${user.id}) for group ${chat.title} (${chat.id})`
-    );
+    const groupId = ctx.chat.id;
+    const userId = ctx.from.id;
 
-    // Optional PM welcome message directly to the approved user
+    // Approve the chat join request natively
+    await api.approveChatJoinRequest(groupId, userId);
+
     if (sendWelcomePm) {
-      await bot.api
+      await api
         .sendMessage(
-          user.id,
-          `🎉 **Request Approved!**\n\nYour request to join **${chat.title}** has been approved. Welcome aboard!`,
+          userId,
+          `✅ Your request to join **${ctx.chat.title}** has been approved! Welcome to the community!`,
           { parse_mode: "Markdown" }
         )
-        .catch(() => {
-          // User has not started PM with the bot yet; ignore safely
-        });
+        .catch(() => {});
     }
   } catch (error) {
-    console.error(
-      `[AutoApprove] Failed to approve user ${user.id} in group ${chat.id}:`,
-      error
-    );
+    console.error("[AutoApprove Service Error]:", error);
   }
 };
