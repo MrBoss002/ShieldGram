@@ -32,7 +32,7 @@ async function checkIsAdmin(ctx: any, groupId: number, userId: number): Promise<
 }
 
 // Utility: Render Main Dashboard Keyboard
-const buildDashboardKeyboard = (config: any) => {
+export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
     .text(
