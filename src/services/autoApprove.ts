@@ -8,15 +8,18 @@ export const handleAutoApprove = async (
   try {
     const groupId = ctx.chat.id;
     const userId = ctx.from.id;
+    const firstName = ctx.from.first_name || "User";
 
     // Approve the chat join request natively
     await api.approveChatJoinRequest(groupId, userId);
 
     if (sendWelcomePm) {
+      const cleanTitle = (ctx.chat.title || "the group").replace(/[*_`\[\]()]/g, "\\$&");
+
       await api
         .sendMessage(
           userId,
-          `✅ Your request to join **${ctx.chat.title}** has been approved! Welcome to the community!`,
+          `👋 Hello **${firstName}**!\n\n✅ Your request to join **${cleanTitle}** has been automatically approved! Welcome to the community!`,
           { parse_mode: "Markdown" }
         )
         .catch(() => {});
