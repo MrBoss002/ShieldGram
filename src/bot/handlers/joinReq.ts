@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 import { handleAutoApprove } from "../../services/autoApprove";
-import { createCaptchaKeyboard } from "../../services/captcha";
+import { createCaptchaKeyboard } from "./captcha";
 
 export const joinReqHandler = new Composer();
 
@@ -25,10 +25,12 @@ joinReqHandler.on("chat_join_request", async (ctx) => {
     // Handle Captcha triggering in PM if enabled
     if (config && config.features.captcha.enabled) {
       const captchaKeyboard = createCaptchaKeyboard(groupId);
+      const chatTitle = ctx.chat.title.replace(/[*_`\[\]()]/g, "\\$&"); // Escape Markdown special characters
+
       await ctx.api
         .sendMessage(
           userId,
-          `🛡️ **Verification Required**\n\nPlease click the button below to verify you are human before participating in **${ctx.chat.title}**.`,
+          `🛡️ **Verification Required**\n\nPlease click the button below to verify you are human before participating in **${chatTitle}**.`,
           {
             parse_mode: "Markdown",
             reply_markup: captchaKeyboard,
@@ -39,16 +41,4 @@ joinReqHandler.on("chat_join_request", async (ctx) => {
   } catch (error) {
     console.error("[JoinReq Handler Error]:", error);
   }
-});
-
-// Captcha Callback Button Listener
-joinReqHandler.callbackQuery(/^verify_captcha_(-?\d+)$/, async (ctx) => {
-  const groupId = parseInt(ctx.match[1]);
-
-  await ctx.answerCallbackQuery({
-    text: "✅ Captcha verified successfully! You are now good to go.",
-    show_alert: true,
-  });
-
-  await ctx.editMessageText("✅ **Verification complete.** Welcome to the group!");
 });
