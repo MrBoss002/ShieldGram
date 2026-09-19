@@ -183,6 +183,15 @@ adminHandler.callbackQuery(
       }
     }
 
+    // Suggest using Force-Sub instead when trying to turn ON Captcha
+if (featureKey === "captcha" && !config.features.captcha.enabled) {
+  return ctx.answerCallbackQuery({
+    text: "💡 Tip: You don't need Captcha! Force-Sub works perfectly as a gatekeeper against bots while also growing your channel members. We recommend using Force-Sub instead.",
+    show_alert: true,
+  });
+}
+    
+    // Prevent turning ON empty settings
     if (featureKey === "rules" && !config.features.rules.enabled) {
       if (!config.features.rules.text) {
         return ctx.answerCallbackQuery({
