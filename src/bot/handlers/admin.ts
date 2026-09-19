@@ -474,24 +474,29 @@ adminHandler.on("message", async (ctx, next) => {
         );
       }
 
-      let channelRef: string;
+      let channelLink: string;
 
     if (forwardedChat.username) {
-      // Public channel format: @channelusername
-      channelRef = `@${forwardedChat.username}`;
+      // Public Channel
+      channelLink = `@${forwardedChat.username}`;
     } else {
-      // Private channel format: Export/Create valid invite link
+      // Private Channel: Generate invite link
       try {
-        channelRef = await ctx.api.exportChatInviteLink(forwardedChat.id);
+        channelLink = await ctx.api.exportChatInviteLink(forwardedChat.id);
       } catch (err) {
         const invite = await ctx.api.createChatInviteLink(forwardedChat.id, {
           name: "ShieldGram Gatekeeper Link",
         });
-        channelRef = invite.invite_link;
+        channelLink = invite.invite_link;
       }
     }
 
-    config.features.forceSub.channels = [channelRef];
+    // Save channel ID alongside link (or format as ID|LINK)
+    const channelData = forwardedChat.username 
+      ? `@${forwardedChat.username}` 
+      : `${forwardedChat.id}|${channelLink}`;
+
+    config.features.forceSub.channels = [channelData];
     config.features.forceSub.enabled = true;
     await config.save();
 
