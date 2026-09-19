@@ -1,10 +1,11 @@
 import { Composer, InlineKeyboard } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
+import { env } from "../../config/env";
 
 export const adminHandler = new Composer();
 
-// Update this to your actual support group link
-const SUPPORT_GROUP_URL = "https://t.me/MrBossSupport";
+// Centralized support link from environment configuration
+const SUPPORT_GROUP_URL = env.SUPPORT_GROUP;
 
 // Memory storage to track active admin editing sessions
 const adminStates = new Map<
@@ -31,7 +32,7 @@ async function checkIsAdmin(ctx: any, groupId: number, userId: number): Promise<
   }
 }
 
-// Utility: Render Main Dashboard Keyboard
+// Utility: Render Main Dashboard Keyboard (EXPORTED FOR start.ts)
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
@@ -322,7 +323,9 @@ adminHandler.callbackQuery(/^toggle_welcomePic_(-?\d+)$/, async (ctx) => {
   const config = await GroupConfig.findOne({ groupId });
   if (!config) return ctx.answerCallbackQuery({ text: "Config not found!" });
 
-  if (!config.features.welcome.mediaUrl) {
+  const hasImage = Boolean(config.features.welcome.mediaUrl && config.features.welcome.mediaUrl.trim() !== "");
+
+  if (!hasImage && !config.features.welcome.mediaEnabled) {
     return ctx.answerCallbackQuery({
       text: "⚠️ Please upload a welcome image first using 'Set Welcome Image'!",
       show_alert: true,
@@ -442,9 +445,10 @@ adminHandler.on("message", async (ctx, next) => {
 
   // A. HANDLE FORCE-SUB FORWARDED POST
   if (action === "AWAITING_FSUB_FORWARD") {
-    const forwardedChat = ctx.message.forward_from_chat;
+    const origin = ctx.message?.forward_origin;
+    const forwardedChat = origin && origin.type === "channel" ? origin.chat : undefined;
 
-    if (!forwardedChat || forwardedChat.type !== "channel") {
+    if (!forwardedChat) {
       return ctx.reply(
         "❌ **Invalid Forward!**\nPlease make sure you are forwarding a message directly from your target **Channel**.",
         { parse_mode: "Markdown", reply_markup: errorKeyboard }
