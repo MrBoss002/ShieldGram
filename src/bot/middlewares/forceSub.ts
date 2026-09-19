@@ -18,20 +18,24 @@ export const forceSubMiddleware = async (
   const userId = ctx.from.id;
 
   try {
+    // 1. Skip checks for Admins & Owner
     const member = await ctx.getChatMember(userId);
     if (["creator", "administrator"].includes(member.status)) {
       return next();
     }
 
+    // 2. Fetch Group Config
     const config = await GroupConfig.findOne({ groupId });
     if (
       !config ||
       !config.features.forceSub.enabled ||
+      !config.features.forceSub.channels ||
       config.features.forceSub.channels.length === 0
     ) {
       return next();
     }
 
+    // 3. Verify Subscriptions via Gatekeeper
     const missingChannels = await checkChannelMemberships(
       ctx.api as any,
       userId,
@@ -39,15 +43,25 @@ export const forceSubMiddleware = async (
     );
 
     if (missingChannels.length > 0) {
+      // Immediately delete user's message
       await ctx.deleteMessage().catch(() => {});
 
       const keyboard = new InlineKeyboard();
+
+      // Build Channel Join Buttons
       missingChannels.forEach((channel, index) => {
-        const cleanHandle = channel.replace("@", "");
-        keyboard.url(`📢 Join Channel ${index + 1}`, `https://t.me/${cleanHandle}`).row();
+        let channelUrl = channel;
+        if (!channel.startsWith("http://") && !channel.startsWith("https://")) {
+          const cleanHandle = channel.replace("@", "");
+          channelUrl = `https://t.me/${cleanHandle}`;
+        }
+        keyboard.url(`📢 Join Channel ${index + 1}`, channelUrl).row();
       });
 
-      const firstName = ctx.from.first_name;
+      // Add a verification button for quick re-check
+      keyboard.text("🔄 I Have Joined", `check_fsub_${userId}`);
+
+      const firstName = ctx.from.first_name || "User";
       const warningMsg = await ctx.reply(
         `⚠️ Hello [${firstName}](tg://user?id=${userId}), you must subscribe to our required channels before chatting in this group!`,
         {
@@ -56,6 +70,7 @@ export const forceSubMiddleware = async (
         }
       );
 
+      // Auto-delete warning message
       const autoDeleteSecs = config.features.forceSub.autoDeleteSeconds || 30;
       setTimeout(() => {
         ctx.api.deleteMessage(groupId, warningMsg.message_id).catch(() => {});
