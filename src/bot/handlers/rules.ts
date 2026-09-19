@@ -1,4 +1,4 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 
 export const rulesHandler = new Composer();
@@ -9,6 +9,8 @@ rulesHandler.command("rules", async (ctx) => {
   }
 
   const groupId = ctx.chat.id;
+  const userId = ctx.from!.id;
+  const firstName = ctx.from!.first_name || "User";
 
   try {
     const config = await GroupConfig.findOne({ groupId });
@@ -22,25 +24,45 @@ rulesHandler.command("rules", async (ctx) => {
     // Delete command message to maintain clean chat
     await ctx.deleteMessage().catch(() => {});
 
-    // Send rules directly in PM to user to avoid group chat clutter
-    await ctx.api
-      .sendMessage(
-        ctx.from!.id,
+    // Try sending rules in private message
+    try {
+      await ctx.api.sendMessage(
+        userId,
         `📜 **Group Rules for ${ctx.chat.title}**\n\n${rulesText}`,
         { parse_mode: "Markdown" }
-      )
-      .then(() => {
-        // Optional quick notify alert in group
-        ctx.reply(`📜 [${ctx.from!.first_name}](tg://user?id=${ctx.from!.id}), I've sent you the group rules in PM!`, {
+      );
+
+      // Notify in group that rules were sent to PM
+      const notifyMsg = await ctx.reply(
+        `📜 [${firstName}](tg://user?id=${userId}), I've sent you the group rules in PM!`,
+        { parse_mode: "Markdown" }
+      );
+
+      // Auto-delete group notification after 10s
+      setTimeout(() => {
+        ctx.api.deleteMessage(groupId, notifyMsg.message_id).catch(() => {});
+      }, 10000);
+
+    } catch (pmError) {
+      // Fallback if user blocked the bot or hasn't started it in PM yet
+      const pmKeyboard = new InlineKeyboard().url(
+        "📩 Tap here to start bot & view rules",
+        `https://t.me/${ctx.me.username}?start=rules_${groupId}`
+      );
+
+      const fallbackMsg = await ctx.reply(
+        `📜 [${firstName}](tg://user?id=${userId}), please tap the button below to view the group rules in PM!`,
+        {
           parse_mode: "Markdown",
-        }).then((m) => {
-          setTimeout(() => ctx.api.deleteMessage(groupId, m.message_id).catch(() => {}), 10000);
-        });
-      })
-      .catch(() => {
-        // Fallback in group if PM is blocked
-        ctx.reply(`📜 **Group Rules:**\n\n${rulesText}`, { parse_mode: "Markdown" });
-      });
+          reply_markup: pmKeyboard,
+        }
+      );
+
+      // Auto-delete fallback message after 15s
+      setTimeout(() => {
+        ctx.api.deleteMessage(groupId, fallbackMsg.message_id).catch(() => {});
+      }, 15000);
+    }
   } catch (error) {
     console.error("[Rules Handler Error]:", error);
   }
