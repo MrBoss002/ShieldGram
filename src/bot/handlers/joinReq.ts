@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 import { handleAutoApprove } from "../../services/autoApprove";
-import { createCaptchaKeyboard } from "./captcha";
+import { createCaptchaKeyboard } from "../../services/captcha";
 
 export const joinReqHandler = new Composer();
 
