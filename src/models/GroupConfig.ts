@@ -16,7 +16,9 @@ export interface IGroupConfig extends Document {
     welcome: {
       enabled: boolean;
       message: string;
+      mediaEnabled: boolean;
       mediaUrl?: string;
+      buttons?: string;
     };
     goodbye: {
       enabled: boolean;
@@ -64,15 +66,17 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
         enabled: { type: Boolean, default: false },
         message: {
           type: String,
-          default: "Welcome {user} to {group}! 🎉",
+          default: "Welcome {MENTION} to {GROUPNAME}! 🎉",
         },
+        mediaEnabled: { type: Boolean, default: false },
         mediaUrl: { type: String, default: "" },
+        buttons: { type: String, default: "" },
       },
       goodbye: {
         enabled: { type: Boolean, default: false },
         message: {
           type: String,
-          default: "Goodbye {user}! We will miss you.",
+          default: "Goodbye {MENTION}! We will miss you.",
         },
       },
       captcha: {
