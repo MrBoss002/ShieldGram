@@ -48,13 +48,21 @@ export const forceSubMiddleware = async (
 
       const keyboard = new InlineKeyboard();
 
-      // Build Channel Join Buttons
-      missingChannels.forEach((channel, index) => {
-        let channelUrl = channel;
-        if (!channel.startsWith("http://") && !channel.startsWith("https://")) {
-          const cleanHandle = channel.replace("@", "");
+      // Build Channel Join Buttons & Verification List
+      missingChannels.forEach((channelEntry, index) => {
+        let targetForApi = channelEntry;
+        let channelUrl = channelEntry;
+
+        // Extract ID and Link if stored as ID|LINK format
+        if (channelEntry.includes("|")) {
+          const [id, link] = channelEntry.split("|");
+          targetForApi = id;
+          channelUrl = link;
+        } else if (!channelEntry.startsWith("http://") && !channelEntry.startsWith("https://")) {
+          const cleanHandle = channelEntry.replace("@", "");
           channelUrl = `https://t.me/${cleanHandle}`;
         }
+
         keyboard.url(`📢 Join Channel ${index + 1}`, channelUrl).row();
       });
 
@@ -69,7 +77,7 @@ export const forceSubMiddleware = async (
           reply_markup: keyboard,
         }
       );
-
+      
       // Auto-delete warning message
       const autoDeleteSecs = config.features.forceSub.autoDeleteSeconds || 30;
       setTimeout(() => {
