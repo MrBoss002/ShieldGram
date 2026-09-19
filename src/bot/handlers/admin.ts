@@ -184,13 +184,13 @@ adminHandler.callbackQuery(
     }
 
     // Suggest using Force-Sub instead when trying to turn ON Captcha
-if (featureKey === "captcha" && !config.features.captcha.enabled) {
-  return ctx.answerCallbackQuery({
-    text: "💡 Tip: You don't need Captcha! Force-Sub works perfectly as a gatekeeper against bots while also growing your channel members. We recommend using Force-Sub instead.",
-    show_alert: true,
-  });
-}
-    
+    if (featureKey === "captcha" && !config.features.captcha.enabled) {
+      return ctx.answerCallbackQuery({
+        text: "💡 Tip: You don't need Captcha! Force-Sub works perfectly as a gatekeeper against bots while also growing your channel members. We recommend using Force-Sub instead.",
+        show_alert: true,
+      });
+    }
+
     // Prevent turning ON empty settings
     if (featureKey === "rules" && !config.features.rules.enabled) {
       if (!config.features.rules.text) {
@@ -476,33 +476,33 @@ adminHandler.on("message", async (ctx, next) => {
 
       let channelLink: string;
 
-    if (forwardedChat.username) {
-      // Public Channel
-      channelLink = `@${forwardedChat.username}`;
-    } else {
-      // Private Channel: Generate invite link
-      try {
-        channelLink = await ctx.api.exportChatInviteLink(forwardedChat.id);
-      } catch (err) {
-        const invite = await ctx.api.createChatInviteLink(forwardedChat.id, {
-          name: "ShieldGram Gatekeeper Link",
-        });
-        channelLink = invite.invite_link;
+      if (forwardedChat.username) {
+        // Public Channel
+        channelLink = `@${forwardedChat.username}`;
+      } else {
+        // Private Channel: Generate invite link
+        try {
+          channelLink = await ctx.api.exportChatInviteLink(forwardedChat.id);
+        } catch (err) {
+          const invite = await ctx.api.createChatInviteLink(forwardedChat.id, {
+            name: "ShieldGram Gatekeeper Link",
+          });
+          channelLink = invite.invite_link;
+        }
       }
-    }
 
-    // Save channel ID alongside link (or format as ID|LINK)
-    const channelData = forwardedChat.username 
-      ? `@${forwardedChat.username}` 
-      : `${forwardedChat.id}|${channelLink}`;
+      // Save channel ID alongside link (or format as ID|LINK)
+      const channelData = forwardedChat.username 
+        ? `@${forwardedChat.username}` 
+        : `${forwardedChat.id}|${channelLink}`;
 
-    config.features.forceSub.channels = [channelData];
-    config.features.forceSub.enabled = true;
-    await config.save();
+      config.features.forceSub.channels = [channelData];
+      config.features.forceSub.enabled = true;
+      await config.save();
 
       adminStates.delete(ctx.from.id);
 
-      const msgText = `✅ **Force-Sub Channel Connected Successfully!**\n\nTarget Channel: **${forwardedChat.title}** (\`${channelRef}\`)`;
+      const msgText = `✅ **Force-Sub Channel Connected Successfully!**\n\nTarget Channel: **${forwardedChat.title}** (\`${channelLink}\`)`;
       if (dashboardMessageId) {
         await ctx.api.editMessageText(ctx.chat.id, dashboardMessageId, msgText, {
           parse_mode: "Markdown",
