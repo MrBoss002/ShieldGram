@@ -1,27 +1,62 @@
 import { Composer, InlineKeyboard } from "grammy";
 import { env } from "../../config/env";
+import { GroupConfig } from "../../models/GroupConfig";
+import { buildDashboardKeyboard } from "./admin";
 
 export const startHandler = new Composer();
+
+// Helper to check if user is an admin of the target group
+async function checkIsAdmin(ctx: any, groupId: number, userId: number): Promise<boolean> {
+  try {
+    const member = await ctx.api.getChatMember(groupId, userId);
+    return ["creator", "administrator"].includes(member.status);
+  } catch {
+    return false;
+  }
+}
 
 startHandler.command("start", async (ctx) => {
   if (ctx.chat.type !== "private") return;
 
   const startPayload = ctx.match;
 
+  // Handle Deep Link from Group (/start config_GROUPID)
   if (startPayload && startPayload.startsWith("config_")) {
     const groupIdStr = startPayload.replace("config_", "");
-    await ctx.reply(
-      `🛡️ **ShieldGram Admin Settings**\n\nDirect configuration initialized for group ID: \`${groupIdStr}\`.\n\nUse the panel below to toggle features or update settings:`,
+    const groupId = parseInt(groupIdStr, 10);
+    const userId = ctx.from!.id;
+
+    if (isNaN(groupId)) {
+      return ctx.reply("⚠️ Invalid group parameter provided.");
+    }
+
+    // Verify user is an admin of the group
+    const isAdmin = await checkIsAdmin(ctx, groupId, userId);
+    if (!isAdmin) {
+      return ctx.reply("⚠️ You do not have permission to configure this group! You must be an admin there.", {
+        reply_markup: new InlineKeyboard().url("💬 Support Group", env.SUPPORT_GROUP),
+      });
+    }
+
+    const config = await GroupConfig.findOne({ groupId });
+    if (!config) {
+      return ctx.reply("❌ Group configuration not found. Please run `/config` inside the group first!", {
+        parse_mode: "Markdown",
+        reply_markup: new InlineKeyboard().url("💬 Support Group", env.SUPPORT_GROUP),
+      });
+    }
+
+    // Directly present the Dashboard Keyboard imported from admin.ts
+    return ctx.reply(
+      `🛡️ **ShieldGram Dashboard**\nGroup ID: \`${groupId}\`\n\nTap any toggle below to instantly enable or disable features:`,
       {
         parse_mode: "Markdown",
-        reply_markup: new InlineKeyboard()
-          .text("⚙️ Open Settings", `open_config_${groupIdStr}`)
-          .row(),
+        reply_markup: buildDashboardKeyboard(config),
       }
     );
-    return;
   }
 
+  // Default /start message in PM
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
