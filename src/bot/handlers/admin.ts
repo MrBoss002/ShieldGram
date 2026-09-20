@@ -36,6 +36,7 @@ async function checkIsAdmin(ctx: any, groupId: number, userId: number): Promise<
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
+    // Row 1: Gatekeeping
     .text(
       `Auto-Approve: ${f.autoApprove.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_autoApprove_${config.groupId}`
@@ -45,6 +46,7 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_captcha_${config.groupId}`
     )
     .row()
+    // Row 2: Alerts & Subscription
     .text(
       `Clean Alerts: ${f.cleanSystemAlerts.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_cleanAlerts_${config.groupId}`
@@ -54,15 +56,33 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_forceSub_${config.groupId}`
     )
     .row()
+    // Row 3: Security & Moderation Features
+    .text(
+      `Anti-Link: ${f.antiLink?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiLink_${config.groupId}`
+    )
+    .text(
+      `Anti-Weblink: ${f.antiWeblink?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiWeblink_${config.groupId}`
+    )
+    .row()
+    // Row 4: Forwarding Control & Greetings
+    .text(
+      `Anti-Forward: ${f.antiForward?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiForward_${config.groupId}`
+    )
     .text(
       `Welcome: ${f.welcome.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_welcome_${config.groupId}`
     )
+    .row()
+    // Row 5: Rules Command
     .text(
       `Rules Cmd: ${f.rules.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_rules_${config.groupId}`
     )
     .row()
+    // Action Rows
     .text("📢 Manage Force-Sub Channels", `manage_fsub_${config.groupId}`)
     .row()
     .text("👋 Edit Welcome Msg", `edit_welcome_${config.groupId}`)
@@ -156,7 +176,7 @@ adminHandler.callbackQuery(/^open_config_(-?\d+)$/, async (ctx) => {
 
 // Feature Toggle Callback Handler (With Smart Validation Popups)
 adminHandler.callbackQuery(
-  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules)_(-?\d+)$/,
+  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward)_(-?\d+)$/,
   async (ctx) => {
     const featureKey = ctx.match[1];
     const groupId = parseInt(ctx.match[2]);
@@ -220,6 +240,23 @@ adminHandler.callbackQuery(
         break;
       case "rules":
         config.features.rules.enabled = !config.features.rules.enabled;
+        break;
+      case "antiLink":
+        config.features.antiLink.enabled = !config.features.antiLink.enabled;
+        // Turn off antiWeblink if antiLink (all links) is enabled
+        if (config.features.antiLink.enabled && config.features.antiWeblink) {
+          config.features.antiWeblink.enabled = false;
+        }
+        break;
+      case "antiWeblink":
+        config.features.antiWeblink.enabled = !config.features.antiWeblink.enabled;
+        // Turn off antiLink if antiWeblink (non-Telegram links) is enabled
+        if (config.features.antiWeblink.enabled && config.features.antiLink) {
+          config.features.antiLink.enabled = false;
+        }
+        break;
+      case "antiForward":
+        config.features.antiForward.enabled = !config.features.antiForward.enabled;
         break;
     }
 
