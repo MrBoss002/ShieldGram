@@ -29,11 +29,40 @@ async function checkIsAdmin(ctx: Context, groupId: number, userId: number): Prom
   }
 }
 
+// Helper function to parse custom buttons for previewing
+function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined {
+  if (!buttonString || !buttonString.trim()) return undefined;
+
+  const keyboard = new InlineKeyboard();
+  const rows = buttonString.split("\n");
+
+  for (const row of rows) {
+    const buttons = row.split("|");
+    let addedCount = 0;
+
+    for (const btn of buttons) {
+      const match = btn.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        const [, text, url] = match;
+        if (text && url) {
+          keyboard.url(text.trim(), url.trim());
+          addedCount++;
+        }
+      }
+    }
+
+    if (addedCount > 0) {
+      keyboard.row();
+    }
+  }
+
+  return keyboard;
+}
+
 // 1. UPDATED DASHBOARD KEYBOARD
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
-    // Upper-case labels
     .text(
       `AUTO-APPROVE: ${f.autoApprove?.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_autoApprove_${config.groupId}`
@@ -75,7 +104,6 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_rules_${config.groupId}`
     )
     .row()
-    // Shortened Action Buttons
     .text("📢 FSUB CHANNELS", `manage_fsub_${config.groupId}`)
     .row()
     .text("📝 WELCOME MSG", `edit_welcome_${config.groupId}`)
@@ -116,22 +144,21 @@ const buildFsubKeyboard = (config: any) => {
   return keyboard;
 };
 
-// 3. COMPACT GRID WELCOME MENU BUILDER
+// 3. CLEAN 2-COLUMN WELCOME MENU BUILDER
 const buildWelcomeMenuKeyboard = (config: any) => {
   const groupId = config.groupId;
 
   return new InlineKeyboard()
     .text("🖼️ SET IMAGE", `set_welcomePic_${groupId}`)
-    .text("👁‍🗨", `prev_welcomePic_${groupId}`)
     .text("🗑️", `del_welcomePic_${groupId}`)
     .row()
     .text("📝 SET TEXT", `set_welcomeText_${groupId}`)
-    .text("👁‍🗨", `prev_welcomeText_${groupId}`)
     .text("🗑️", `del_welcomeText_${groupId}`)
     .row()
-    .text("🔘 SET BUTTON", `set_welcomeButtons_${groupId}`)
-    .text("👁‍🗨", `prev_welcomeButtons_${groupId}`)
+    .text("🔘 SET BUTTONS", `set_welcomeButtons_${groupId}`)
     .text("🗑️", `del_welcomeButtons_${groupId}`)
+    .row()
+    .text("👁‍🗨 PREVIEW WELCOME MSG", `prev_welcomeAll_${groupId}`)
     .row()
     .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
 };
@@ -301,33 +328,65 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
   const hasTxt = !!config.features?.welcome?.message;
   const hasBtn = !!config.features?.welcome?.buttons;
 
-  await ctx.editMessageText(
-    `👋 <b>Welcome Message Customization</b>\n\n` +
-      `IMAGE: ${hasImg ? "✅" : "❎"}\n TEXT: ${hasTxt ? "✅" : "❎"}\n BUTTONS: ${hasBtn ? "✅" : "❎"}`
-    { parse_mode: "HTML", reply_markup: buildWelcomeMenuKeyboard(config) }
-  );
+  const menuText =
+    `👋 <b>Welcome Message Customization</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}`;
+
+  await ctx.editMessageText(menuText, {
+    parse_mode: "HTML",
+    reply_markup: buildWelcomeMenuKeyboard(config),
+  });
   await ctx.answerCallbackQuery();
 });
 
-// PREVIEW WELCOME HANDLERS
-adminHandler.callbackQuery(/^prev_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx) => {
-  const type = ctx.match[1];
-  const groupId = parseInt(ctx.match[2]);
-
+// PREVIEW COMPLETE WELCOME CARD (EXACT OUTPUT)
+adminHandler.callbackQuery(/^prev_welcomeAll_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
   const config = await GroupConfig.findOne({ groupId });
   if (!config) return ctx.answerCallbackQuery();
 
   const w = config.features?.welcome;
-  if (type === "Pic") {
-    if (!w?.mediaUrl) return ctx.answerCallbackQuery({ text: "⚠️ Didn't set yet!", show_alert: true });
-    await ctx.replyWithPhoto(w.mediaUrl, { caption: "👁‍🗨 Preview: Welcome Image" });
-  } else if (type === "Text") {
-    if (!w?.message) return ctx.answerCallbackQuery({ text: "⚠️ Didn't set yet!", show_alert: true });
-    await ctx.reply(`👁‍🗨 <b>Preview Text:</b>\n\n${w.message}`, { parse_mode: "HTML" });
-  } else if (type === "Buttons") {
-    if (!w?.buttons) return ctx.answerCallbackQuery({ text: "⚠️ Didn't set yet!", show_alert: true });
-    await ctx.reply(`👁‍🗨 <b>Preview Buttons Config:</b>\n<code>${w.buttons}</code>`, { parse_mode: "HTML" });
+  const firstName = ctx.from.first_name || "User";
+  const groupTitle = "Sample Group";
+
+  let welcomeText = w?.message?.trim() || "";
+
+  // Variable replacements
+  if (welcomeText) {
+    welcomeText = welcomeText
+      .replace(/{name}/g, firstName)
+      .replace(/{mention}/g, `<a href="tg://user?id=${ctx.from.id}">${firstName}</a>`)
+      .replace(/{title}/g, groupTitle)
+      .replace(/{groupname}/g, groupTitle);
   }
+
+  const keyboard = parseWelcomeButtons(w?.buttons);
+
+  try {
+    if (w?.mediaUrl) {
+      await ctx.replyWithPhoto(w.mediaUrl, {
+        caption: welcomeText || undefined,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } else {
+      if (!welcomeText) {
+        return ctx.answerCallbackQuery({
+          text: "⚠️ No welcome text or image configured to preview!",
+          show_alert: true,
+        });
+      }
+
+      await ctx.reply(welcomeText, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    }
+  } catch (err) {
+    await ctx.reply("❌ Error generating preview. Please check your button syntax or image ID.");
+  }
+
   await ctx.answerCallbackQuery();
 });
 
@@ -352,11 +411,14 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
   const hasTxt = !!config.features?.welcome?.message;
   const hasBtn = !!config.features?.welcome?.buttons;
 
-  await ctx.editMessageText(
+  const menuText =
     `👋 <b>Welcome Message Customization</b>\n\n` +
-      `IMAGE: ${hasImg ? "✅" : "❎"}\n TEXT: ${hasTxt ? "✅" : "❎"}\n BUTTONS: ${hasBtn ? "✅" : "❎"}`
-    { parse_mode: "HTML", reply_markup: buildWelcomeMenuKeyboard(config) }
-  );
+    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}`;
+
+  await ctx.editMessageText(menuText, {
+    parse_mode: "HTML",
+    reply_markup: buildWelcomeMenuKeyboard(config),
+  });
 });
 
 // SET WELCOME PROMPT HANDLERS
@@ -526,7 +588,7 @@ adminHandler.on("message", async (ctx, next) => {
       reply_markup: new InlineKeyboard().text("📢 MANAGE FSUB", `manage_fsub_${groupId}`),
     });
   }
-  
+
   if (action === "AWAITING_RULES_TEXT") {
     const newRules = ctx.message.text || "";
     if (!newRules.trim()) {
