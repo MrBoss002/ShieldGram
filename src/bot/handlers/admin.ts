@@ -340,7 +340,7 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// PREVIEW COMPLETE WELCOME CARD (EXACT OUTPUT)
+// PREVIEW COMPLETE WELCOME CARD
 adminHandler.callbackQuery(/^prev_welcomeAll_(-?\d+)$/, async (ctx) => {
   const groupId = parseInt(ctx.match[1]);
   const config = await GroupConfig.findOne({ groupId });
@@ -352,7 +352,6 @@ adminHandler.callbackQuery(/^prev_welcomeAll_(-?\d+)$/, async (ctx) => {
 
   let welcomeText = w?.message?.trim() || "";
 
-  // Variable replacements
   if (welcomeText) {
     welcomeText = welcomeText
       .replace(/{name}/g, firstName)
@@ -412,7 +411,8 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
   const hasBtn = !!config.features?.welcome?.buttons;
 
   const menuText =
-    `👋 <b>Welcome Message Customization</b>\n\n` +
+    `👋 <b>Welcome Message Customization</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}`;
 
   await ctx.editMessageText(menuText, {
@@ -500,7 +500,7 @@ adminHandler.callbackQuery(/^edit_rules_(-?\d+)$/, async (ctx) => {
 
   await ctx.editMessageText(rulesGuideText, {
     parse_mode: "HTML",
-    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
     reply_markup: keyboard,
   });
   await ctx.answerCallbackQuery();
@@ -510,13 +510,16 @@ adminHandler.callbackQuery(/^edit_rules_(-?\d+)$/, async (ctx) => {
 adminHandler.callbackQuery(/^prev_rules_(-?\d+)$/, async (ctx) => {
   const groupId = parseInt(ctx.match[1]);
   const config = await GroupConfig.findOne({ groupId });
-  const rulesText = config?.features?.rules?.rulesText;
+  const rulesText = config?.features?.rules?.text;
 
   if (!rulesText) {
     return ctx.answerCallbackQuery({ text: "⚠️ No rules configured yet!", show_alert: true });
   }
 
-  await ctx.reply(`👁‍🗨 <b>Preview Group Rules:</b>\n\n${rulesText}`, { parse_mode: "HTML", disable_web_page_preview: true });
+  await ctx.reply(`👁‍🗨 <b>Preview Group Rules:</b>\n\n${rulesText}`, {
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+  });
   await ctx.answerCallbackQuery();
 });
 
@@ -527,7 +530,7 @@ adminHandler.callbackQuery(/^del_rules_(-?\d+)$/, async (ctx) => {
 
   const config = await GroupConfig.findOne({ groupId });
   if (config) {
-    config.features.rules.rulesText = "";
+    config.features.rules.text = "";
     config.features.rules.enabled = false;
     await config.save();
   }
@@ -595,7 +598,7 @@ adminHandler.on("message", async (ctx, next) => {
       return ctx.reply("❌ Please send a valid text for group rules.");
     }
 
-    config.features.rules.rulesText = newRules;
+    config.features.rules.text = newRules;
     config.features.rules.enabled = true;
     await config.save();
     adminStates.delete(ctx.from.id);
