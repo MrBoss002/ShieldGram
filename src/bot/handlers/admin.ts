@@ -261,8 +261,8 @@ adminHandler.callbackQuery(/^add_fsub_channel_(-?\d+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `📢 <b>Add Force-Sub Channel</b>\n\n` +
-      `1. Add me to your channel as an <b>Admin</b>.\n` +
-      `2. <b>Forward any post</b> from that channel here.`,
+      `1. Add me to your channel as an Admin.\n` +
+      `2. Forward any post from that channel here.`,
     { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🔙 BACK", `manage_fsub_${groupId}`) }
   );
   await ctx.answerCallbackQuery();
@@ -303,7 +303,7 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `👋 <b>Welcome Message Customization</b>\n\n` +
-      `IMAGE: ${hasImg ? "✅" : "❎"}, TEXT: ${hasTxt ? "✅" : "❎"}, BUTTONS: ${hasBtn ? "✅" : "❎"}`,
+      `IMAGE: ${hasImg ? "✅" : "❎"}\n TEXT: ${hasTxt ? "✅" : "❎"}\n BUTTONS: ${hasBtn ? "✅" : "❎"}`
     { parse_mode: "HTML", reply_markup: buildWelcomeMenuKeyboard(config) }
   );
   await ctx.answerCallbackQuery();
@@ -354,7 +354,7 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
 
   await ctx.editMessageText(
     `👋 <b>Welcome Message Customization</b>\n\n` +
-      `IMAGE: ${hasImg ? "✅" : "❎"}, TEXT: ${hasTxt ? "✅" : "❎"}, BUTTONS: ${hasBtn ? "✅" : "❎"}`,
+      `IMAGE: ${hasImg ? "✅" : "❎"}\n TEXT: ${hasTxt ? "✅" : "❎"}\n BUTTONS: ${hasBtn ? "✅" : "❎"}`
     { parse_mode: "HTML", reply_markup: buildWelcomeMenuKeyboard(config) }
   );
 });
@@ -492,23 +492,41 @@ adminHandler.on("message", async (ctx, next) => {
     const forwardedChat = origin && origin.type === "channel" ? origin.chat : undefined;
 
     if (!forwardedChat) {
-      return ctx.reply("❌ Forward directly from your target **Channel**.");
+      return ctx.reply("❌ Forward directly from your target Channel.");
     }
 
-    const channelData = forwardedChat.username
-      ? `@${forwardedChat.username}`
-      : `${forwardedChat.id}|https://t.me/c/${Math.abs(forwardedChat.id)}/1`;
+    let channelData = "";
+
+    if (forwardedChat.username) {
+      // Public Channel
+      channelData = `@${forwardedChat.username}`;
+    } else {
+      // Private Channel: Generate actual invite link via Telegram API
+      try {
+        const invite = await ctx.api.createChatInviteLink(forwardedChat.id, {
+          name: "ShieldGram Force-Sub Link",
+        });
+        channelData = `${forwardedChat.id}|${invite.invite_link}`;
+      } catch (error) {
+        console.error("[Create Invite Link Error]:", error);
+        return ctx.reply(
+          "❌ <b>Failed to create invite link!</b>\nMake sure I am added to the channel as an <b>Admin</b> with <i>'Invite Users via Link'</i> permissions.",
+          { parse_mode: "HTML" }
+        );
+      }
+    }
 
     config.features.forceSub.channels = [channelData];
     config.features.forceSub.enabled = true;
     await config.save();
     adminStates.delete(ctx.from.id);
 
-    return ctx.reply("✅ **Force-Sub Channel Connected Successfully!**", {
+    return ctx.reply("✅ <b>Force-Sub Channel Connected Successfully!</b>", {
+      parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("📢 MANAGE FSUB", `manage_fsub_${groupId}`),
     });
   }
-
+  
   if (action === "AWAITING_RULES_TEXT") {
     const newRules = ctx.message.text || "";
     if (!newRules.trim()) {
@@ -530,7 +548,10 @@ adminHandler.on("message", async (ctx, next) => {
     config.features.welcome.message = ctx.message.text || "";
     await config.save();
     adminStates.delete(ctx.from.id);
-    return ctx.reply("✅ **Welcome text updated!**", { reply_markup: backWelcome });
+    return ctx.reply("✅ <b>Welcome text updated!</b>", {
+      parse_mode: "HTML",
+      reply_markup: backWelcome,
+    });
   }
 
   if (action === "AWAITING_WELCOME_PIC") {
@@ -540,14 +561,20 @@ adminHandler.on("message", async (ctx, next) => {
     config.features.welcome.mediaUrl = photo[photo.length - 1].file_id;
     await config.save();
     adminStates.delete(ctx.from.id);
-    return ctx.reply("✅ **Welcome image set!**", { reply_markup: backWelcome });
+    return ctx.reply("✅ <b>Welcome image set!</b>", {
+      parse_mode: "HTML",
+      reply_markup: backWelcome,
+    });
   }
 
   if (action === "AWAITING_WELCOME_BUTTONS") {
     config.features.welcome.buttons = ctx.message.text || "";
     await config.save();
     adminStates.delete(ctx.from.id);
-    return ctx.reply("✅ **Welcome buttons updated!**", { reply_markup: backWelcome });
+    return ctx.reply("✅ <b>Welcome buttons updated!</b>", {
+      parse_mode: "HTML",
+      reply_markup: backWelcome,
+    });
   }
 
   return next();
