@@ -1,5 +1,5 @@
 import { Composer, InlineKeyboard } from "grammy";
-import { GroupConfig } from "../models/GroupConfig";
+import { GroupConfig } from "../../models/GroupConfig";
 
 export const welcomeHandler = new Composer();
 
