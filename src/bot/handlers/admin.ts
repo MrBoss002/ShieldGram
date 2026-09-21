@@ -82,18 +82,16 @@ export const buildDashboardKeyboard = (config: any) => {
     .text("📜 RULES TEXT", `edit_rules_${config.groupId}`);
 };
 
-// 2. FORCE-SUB MENU BUILDER (State 1 & State 2)
+// 2. FORCE-SUB MENU BUILDER
 const buildFsubKeyboard = (config: any) => {
   const groupId = config.groupId;
   const channels = config.features?.forceSub?.channels || [];
   const keyboard = new InlineKeyboard();
 
   if (channels.length === 0) {
-    // State 1: No channel
     keyboard.text("➕ ADD CHANNEL", `add_fsub_channel_${groupId}`).row();
   } else {
-    // State 2: Channel added
-    const chData = channels[0]; // Format: "@username" or "id|link"
+    const chData = channels[0];
     let displayTitle = "Channel";
     let url = "";
 
@@ -123,22 +121,18 @@ const buildWelcomeMenuKeyboard = (config: any) => {
   const groupId = config.groupId;
 
   return new InlineKeyboard()
-    // Row 1: Image Actions
     .text("🖼️ SET IMAGE", `set_welcomePic_${groupId}`)
     .text("👁‍🗨", `prev_welcomePic_${groupId}`)
     .text("🗑️", `del_welcomePic_${groupId}`)
     .row()
-    // Row 2: Text Actions
     .text("📝 SET TEXT", `set_welcomeText_${groupId}`)
     .text("👁‍🗨", `prev_welcomeText_${groupId}`)
     .text("🗑️", `del_welcomeText_${groupId}`)
     .row()
-    // Row 3: Button Actions
     .text("🔘 SET BUTTON", `set_welcomeButtons_${groupId}`)
     .text("👁‍🗨", `prev_welcomeButtons_${groupId}`)
     .text("🗑️", `del_welcomeButtons_${groupId}`)
     .row()
-    // Row 4: Back Button
     .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
 };
 
@@ -166,7 +160,7 @@ adminHandler.command("config", async (ctx) => {
   await ctx.reply(
     `👋 <b>Thank you for using ShieldGram in ${ctx.chat.title}!</b>\n\n` +
     `⚡ Important: Make sure to give me Admin permissions so all security features work properly.\n\n` +
-      `⚙️ If you are an Admin, click the button below to open your configuration dashboard in PM:`,
+    `⚙️ If you are an Admin, click the button below to open your configuration dashboard in PM:`,
     { parse_mode: "HTML", reply_markup: keyboard }
   );
 });
@@ -235,7 +229,7 @@ adminHandler.callbackQuery(
   }
 );
 
-// --- FORCE-SUB FLOW (SINGLE CHANNEL) ---
+// --- FORCE-SUB FLOW ---
 adminHandler.callbackQuery(/^manage_fsub_(-?\d+)$/, async (ctx) => {
   const groupId = parseInt(ctx.match[1]);
   if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) {
@@ -315,7 +309,7 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// PREVIEW (👁‍🗨) HANDLERS
+// PREVIEW WELCOME HANDLERS
 adminHandler.callbackQuery(/^prev_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx) => {
   const type = ctx.match[1];
   const groupId = parseInt(ctx.match[2]);
@@ -337,7 +331,7 @@ adminHandler.callbackQuery(/^prev_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ct
   await ctx.answerCallbackQuery();
 });
 
-// DELETE (🗑️) HANDLERS
+// DELETE WELCOME HANDLERS
 adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx) => {
   const type = ctx.match[1];
   const groupId = parseInt(ctx.match[2]);
@@ -365,7 +359,7 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
   );
 });
 
-// SET PROMPT HANDLERS
+// SET WELCOME PROMPT HANDLERS
 adminHandler.callbackQuery(/^set_welcomePic_(-?\d+)$/, async (ctx) => {
   const groupId = parseInt(ctx.match[1]);
   if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
@@ -400,6 +394,85 @@ adminHandler.callbackQuery(/^set_welcomeButtons_(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
+// --- RULES CUSTOMIZATION FLOW ---
+adminHandler.callbackQuery(/^edit_rules_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) {
+    return ctx.answerCallbackQuery({ text: "⚠️ Permission denied!", show_alert: true });
+  }
+
+  adminStates.set(ctx.from.id, { action: "AWAITING_RULES_TEXT", groupId });
+
+  const rulesGuideText =
+    `📜 <b>GROUP REGULATION SETUP</b>\n\n` +
+    `Send your group rules below. You can write your own or copy and customize the ready-to-use template below.\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `✨ <b>SUPPORTED FORMATTING</b>\n` +
+    `🔸 <code>&lt;b&gt;Bold Text&lt;/b&gt;</code> ➔ <b>Bold Text</b>\n` +
+    `🔸 <code>&lt;i&gt;Italic Text&lt;/i&gt;</code> ➔ <i>Italic Text</i>\n` +
+    `🔸 <code>&lt;a href="https://example.com"&gt;Link Text&lt;/a&gt;</code> ➔ <a href="https://example.com">Link Text</a>\n` +
+    `🔸 <code>&lt;code&gt;Monospace Code&lt;/code&gt;</code> ➔ <code>Monospace Code</code>\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `📋 <b>READY-TO-USE TEMPLATE</b>\n` +
+    `<i>(Tap code below to copy, edit, and send)</i>\n\n` +
+    `<code>🛡️ &lt;b&gt;GROUP RULES &amp; REGULATIONS&lt;/b&gt;\n\n` +
+    `1️⃣ &lt;b&gt;Respect All Members&lt;/b&gt;\n` +
+    `• Keep discussions civil and friendly. No hate speech, harassment, or personal attacks.\n\n` +
+    `2️⃣ &lt;b&gt;No Spam or Unsolicited Promotion&lt;/b&gt;\n` +
+    `• Avoid posting self-promotional links, referral links, or mass spam messages without permission.\n\n` +
+    `3️⃣ &lt;b&gt;English/Primary Language Only&lt;/b&gt;\n` +
+    `• Please stick to the group's main language so moderators can review content effectively.\n\n` +
+    `4️⃣ &lt;b&gt;No NSFW / Illegal Content&lt;/b&gt;\n` +
+    `• Any explicit material, scams, or illegal activities will result in an immediate ban.\n\n` +
+    `5️⃣ &lt;b&gt;Follow Admin Instructions&lt;/b&gt;\n` +
+    `• Respect decisions made by group administrators and moderators.\n\n` +
+    `💡 &lt;i&gt;Violations may result in a mute or ban from the group.&lt;/i&gt;</code>\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `👇 <b>Send your rules text below:</b>`;
+
+  const keyboard = new InlineKeyboard()
+    .text("👁‍🗨 PREVIEW", `prev_rules_${groupId}`)
+    .text("🗑️ DELETE", `del_rules_${groupId}`)
+    .row()
+    .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
+
+  await ctx.editMessageText(rulesGuideText, {
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: keyboard,
+  });
+  await ctx.answerCallbackQuery();
+});
+
+// PREVIEW RULES
+adminHandler.callbackQuery(/^prev_rules_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  const config = await GroupConfig.findOne({ groupId });
+  const rulesText = config?.features?.rules?.rulesText;
+
+  if (!rulesText) {
+    return ctx.answerCallbackQuery({ text: "⚠️ No rules configured yet!", show_alert: true });
+  }
+
+  await ctx.reply(`👁‍🗨 <b>Preview Group Rules:</b>\n\n${rulesText}`, { parse_mode: "HTML", disable_web_page_preview: true });
+  await ctx.answerCallbackQuery();
+});
+
+// DELETE RULES
+adminHandler.callbackQuery(/^del_rules_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
+
+  const config = await GroupConfig.findOne({ groupId });
+  if (config) {
+    config.features.rules.rulesText = "";
+    config.features.rules.enabled = false;
+    await config.save();
+  }
+
+  await ctx.answerCallbackQuery({ text: "🗑️ Rules deleted successfully!", show_alert: false });
+});
+
 // --- CENTRAL INPUT LISTENER ---
 adminHandler.on("message", async (ctx, next) => {
   if (ctx.chat.type !== "private") return next();
@@ -412,6 +485,7 @@ adminHandler.on("message", async (ctx, next) => {
   if (!config) return next();
 
   const backWelcome = new InlineKeyboard().text("🔙 BACK TO WELCOME MENU", `edit_welcome_${groupId}`);
+  const backDashboard = new InlineKeyboard().text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
 
   if (action === "AWAITING_FSUB_FORWARD") {
     const origin = ctx.message?.forward_origin;
@@ -432,6 +506,23 @@ adminHandler.on("message", async (ctx, next) => {
 
     return ctx.reply("✅ **Force-Sub Channel Connected Successfully!**", {
       reply_markup: new InlineKeyboard().text("📢 MANAGE FSUB", `manage_fsub_${groupId}`),
+    });
+  }
+
+  if (action === "AWAITING_RULES_TEXT") {
+    const newRules = ctx.message.text || "";
+    if (!newRules.trim()) {
+      return ctx.reply("❌ Please send a valid text for group rules.");
+    }
+
+    config.features.rules.rulesText = newRules;
+    config.features.rules.enabled = true;
+    await config.save();
+    adminStates.delete(ctx.from.id);
+
+    return ctx.reply("✅ <b>Group rules updated and enabled!</b>", {
+      parse_mode: "HTML",
+      reply_markup: backDashboard,
     });
   }
 
