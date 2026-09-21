@@ -46,12 +46,12 @@ rulesHandler.command("rules", async (ctx) => {
     } catch (pmError) {
       // Fallback if user blocked the bot or hasn't started it in PM yet
       const pmKeyboard = new InlineKeyboard().url(
-        "📩 Tap here to start bot & view rules",
+        "📩 GROUP REGULATION",
         `https://t.me/${ctx.me.username}?start=rules_${groupId}`
       );
 
       const fallbackMsg = await ctx.reply(
-        `📜 [${firstName}](tg://user?id=${userId}), please tap the button below to view the group rules in PM!`,
+        `📜 [${firstName}](tg://user?id=${userId}), Please tap the button below to view the group rules in PM! ❤️`,
         {
           parse_mode: "Markdown",
           reply_markup: pmKeyboard,
