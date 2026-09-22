@@ -1,4 +1,4 @@
-import { Composer, InlineKeyboard } from "grammy";
+import { Composer, Context, InlineKeyboard } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 
 export const welcomeHandler = new Composer();
@@ -40,59 +40,118 @@ export function parseCustomButtons(buttonString: string): InlineKeyboard {
   return keyboard;
 }
 
-// --- WELCOME EVENT LISTENER ---
-welcomeHandler.on("chat_member", async (ctx) => {
-  const { old_chat_member, new_chat_member } = ctx.chatMember;
-
-  // Trigger strictly when a user joins (transitions from "left/kicked" to "member/restricted")
-  const wasNotMember = ["left", "kicked"].includes(old_chat_member.status);
-  const isNowMember = ["member", "restricted"].includes(new_chat_member.status);
-
-  if (!wasNotMember || !isNowMember) return;
-
-  // Ignore bots joining
-  if (new_chat_member.user.is_bot) return;
-
-  const groupId = ctx.chat.id;
-
+// --- HELPER 1: SEND WELCOME TO GROUP (FOR NORMAL JOINS) ---
+export async function sendWelcomeToGroup(
+  ctx: Context,
+  groupId: number,
+  user: { id: number; first_name: string; username?: string }
+) {
   try {
     const config = await GroupConfig.findOne({ groupId });
-
-    // Check if welcome feature is explicitly enabled
     if (!config || !config.features?.welcome?.enabled) return;
 
     const { message, mediaUrl, buttons } = config.features.welcome;
-    const user = new_chat_member.user;
-
-    // Default message fallback if text hasn't been configured yet
     const rawText = message || "👋 Welcome {MENTION} to <b>{GROUPNAME}</b>!";
+    const groupTitle = ctx.chat?.title || "the group";
 
-    // Dynamic tag replacements (Case-insensitive)
     const formattedText = rawText
       .replace(/{MENTION}/gi, `<a href="tg://user?id=${user.id}">${user.first_name}</a>`)
       .replace(/{(FIRSTNAME|NAME)}/gi, user.first_name)
       .replace(/{USERNAME}/gi, user.username ? `@${user.username}` : user.first_name)
       .replace(/{USERID}/gi, user.id.toString())
-      .replace(/{(GROUPNAME|TITLE)}/gi, ctx.chat.title || "the group");
+      .replace(/{(GROUPNAME|TITLE)}/gi, groupTitle);
 
-    // Parse inline custom buttons
     const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
 
-    // Send photo message with caption if image file_id exists
     if (mediaUrl) {
-      await ctx.replyWithPhoto(mediaUrl, {
+      await ctx.api.sendPhoto(groupId, mediaUrl, {
         caption: formattedText,
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
     } else {
-      // Send standard text message
-      await ctx.reply(formattedText, {
+      await ctx.api.sendMessage(groupId, formattedText, {
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
     }
-  } catch (error) {
-    console.error("[Welcome Handler Error]:", error);
+  } catch (err) {
+    console.error("[Group Welcome Error]:", err);
+  }
+}
+
+// --- HELPER 2: SEND WELCOME TO PM WITH GROUP FALLBACK (FOR APPROVED JOINS) ---
+export async function sendWelcomeToPM(
+  ctx: Context,
+  groupId: number,
+  user: { id: number; first_name: string; username?: string }
+) {
+  try {
+    const config = await GroupConfig.findOne({ groupId });
+    if (!config || !config.features?.welcome?.enabled) return;
+
+    const { message, mediaUrl, buttons } = config.features.welcome;
+    const rawText = message || "👋 Welcome {MENTION} to <b>{GROUPNAME}</b>!";
+    const groupTitle = ctx.chat?.title || "the group";
+
+    const formattedText = rawText
+      .replace(/{MENTION}/gi, `<a href="tg://user?id=${user.id}">${user.first_name}</a>`)
+      .replace(/{(FIRSTNAME|NAME)}/gi, user.first_name)
+      .replace(/{USERNAME}/gi, user.username ? `@${user.username}` : user.first_name)
+      .replace(/{USERID}/gi, user.id.toString())
+      .replace(/{(GROUPNAME|TITLE)}/gi, groupTitle);
+
+    const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
+
+    // Try sending PM first
+    try {
+      if (mediaUrl) {
+        await ctx.api.sendPhoto(user.id, mediaUrl, {
+          caption: formattedText,
+          parse_mode: "HTML",
+          reply_markup: keyboard,
+        });
+      } else {
+        await ctx.api.sendMessage(user.id, formattedText, {
+          parse_mode: "HTML",
+          reply_markup: keyboard,
+        });
+      }
+    } catch (pmError) {
+      // If PM fails, fallback to sending in the group
+      await sendWelcomeToGroup(ctx, groupId, user);
+    }
+  } catch (err) {
+    console.error("[PM Welcome Error]:", err);
+  }
+}
+
+// --- EVENT 1: DIRECT / NORMAL JOINS ---
+welcomeHandler.on("chat_member", async (ctx) => {
+  const { old_chat_member, new_chat_member } = ctx.chatMember;
+
+  const wasNotMember = ["left", "kicked"].includes(old_chat_member.status);
+  const isNowMember = ["member", "restricted"].includes(new_chat_member.status);
+
+  if (!wasNotMember || !isNowMember) return;
+  if (new_chat_member.user.is_bot) return;
+
+  // Sends to Group
+  await sendWelcomeToGroup(ctx, ctx.chat.id, new_chat_member.user);
+});
+
+// --- EVENT 2: JOIN REQUEST APPROVALS ---
+welcomeHandler.on("chat_join_request", async (ctx) => {
+  const groupId = ctx.chat.id;
+  const user = ctx.from;
+
+  try {
+    // Approve the join request
+    await ctx.approveChatJoinRequest(user.id);
+
+    // Sends to PM (Falls back to Group if PM fails)
+    await sendWelcomeToPM(ctx, groupId, user);
+  } catch (err) {
+    console.error("[Auto-Approve Error]:", err);
   }
 });
