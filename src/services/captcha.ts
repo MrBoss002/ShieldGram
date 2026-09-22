@@ -32,19 +32,17 @@ captchaHandler.on("chat_member", async (ctx, next) => {
     // Check if Captcha is enabled
     if (!config || !config.features?.captcha?.enabled) return next();
 
-    // Restrict the user upon entry
+    // Restrict the user upon entry (Passed permissions directly)
     await ctx.api.restrictChatMember(groupId, user.id, {
-      permissions: {
-        can_send_messages: false,
-        can_send_audios: false,
-        can_send_documents: false,
-        can_send_photos: false,
-        can_send_videos: false,
-        can_send_video_notes: false,
-        can_send_voice_notes: false,
-        can_send_other_messages: false,
-        can_add_web_page_previews: false,
-      },
+      can_send_messages: false,
+      can_send_audios: false,
+      can_send_documents: false,
+      can_send_photos: false,
+      can_send_videos: false,
+      can_send_video_notes: false,
+      can_send_voice_notes: false,
+      can_send_other_messages: false,
+      can_add_web_page_previews: false,
     });
 
     // Send PM verification prompt to user
@@ -90,19 +88,17 @@ captchaHandler.callbackQuery(/^verify_captcha_(-?\d+)$/, async (ctx) => {
       });
     }
 
-    // Unrestrict user permissions in the group
+    // Unrestrict user permissions in the group (Passed permissions directly)
     await ctx.api.restrictChatMember(groupId, userId, {
-      permissions: {
-        can_send_messages: true,
-        can_send_audios: true,
-        can_send_documents: true,
-        can_send_photos: true,
-        can_send_videos: true,
-        can_send_video_notes: true,
-        can_send_voice_notes: true,
-        can_send_other_messages: true,
-        can_add_web_page_previews: true,
-      },
+      can_send_messages: true,
+      can_send_audios: true,
+      can_send_documents: true,
+      can_send_photos: true,
+      can_send_videos: true,
+      can_send_video_notes: true,
+      can_send_voice_notes: true,
+      can_send_other_messages: true,
+      can_add_web_page_previews: true,
     });
 
     await ctx.answerCallbackQuery({
