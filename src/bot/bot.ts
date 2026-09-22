@@ -4,8 +4,7 @@ import { forceSubMiddleware, forceSubHandler } from "./middlewares/forceSub";
 import { systemCleanMiddleware } from "./middlewares/systemClean";
 import { startHandler } from "./handlers/start";
 import { adminHandler } from "./handlers/admin";
-import { welcomeHandler } from "./handlers/welcome";
-import { joinReqHandler } from "./handlers/joinReq";
+import { welcomeHandler } from "./handlers/welcome"; // Handles welcome msgs, normal joins & join requests
 import { rulesHandler } from "./handlers/rules";
 import { moderationHandler } from "./handlers/moderation";
 
@@ -23,8 +22,7 @@ bot.use(forceSubMiddleware);
 // 3. Register Handlers & Composers
 bot.use(startHandler);
 bot.use(adminHandler);
-bot.use(welcomeHandler);
-bot.use(joinReqHandler);
+bot.use(welcomeHandler); // Handles both direct joins & approved join requests
 bot.use(rulesHandler);
 
 // 4. Global Error Handler
