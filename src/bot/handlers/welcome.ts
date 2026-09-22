@@ -3,16 +3,6 @@ import { GroupConfig } from "../../models/GroupConfig";
 
 export const welcomeHandler = new Composer();
 
-/**
- * Helper to parse custom button strings into a gramY InlineKeyboard object.
- *
- * Supported formats:
- * - Single button: [Google](https://google.com)
- * - Multiple buttons in one row (separated by |): [Google](https://google.com) | [Support](https://t.me/support)
- * - Multiple rows (separated by newlines):
- *   [Google](https://google.com) | [Support](https://t.me/support)
- *   [Channel](https://t.me/mychannel)
- */
 export function parseCustomButtons(buttonString: string): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   if (!buttonString || !buttonString.trim()) return keyboard;
@@ -30,7 +20,12 @@ export function parseCustomButtons(buttonString: string): InlineKeyboard {
         const cleanText = text.trim();
         const cleanUrl = url.trim();
 
-        if (cleanText && (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://") || cleanUrl.startsWith("tg://"))) {
+        if (
+          cleanText &&
+          (cleanUrl.startsWith("http://") ||
+            cleanUrl.startsWith("https://") ||
+            cleanUrl.startsWith("tg://"))
+        ) {
           keyboard.url(cleanText, cleanUrl);
           hasAddedButtonInRow = true;
         }
@@ -72,16 +67,16 @@ welcomeHandler.on("chat_member", async (ctx) => {
     // Default message fallback if text hasn't been configured yet
     const rawText = message || "👋 Welcome {MENTION} to <b>{GROUPNAME}</b>!";
 
-    // Dynamic tag replacements
+    // Dynamic tag replacements (Case-insensitive)
     const formattedText = rawText
-      .replace(/{MENTION}/g, `<a href="tg://user?id=${user.id}">${user.first_name}</a>`)
-      .replace(/{FIRSTNAME}/g, user.first_name)
-      .replace(/{USERNAME}/g, user.username ? `@${user.username}` : user.first_name)
-      .replace(/{USERID}/g, user.id.toString())
-      .replace(/{GROUPNAME}/g, ctx.chat.title || "the group");
+      .replace(/{MENTION}/gi, `<a href="tg://user?id=${user.id}">${user.first_name}</a>`)
+      .replace(/{(FIRSTNAME|NAME)}/gi, user.first_name)
+      .replace(/{USERNAME}/gi, user.username ? `@${user.username}` : user.first_name)
+      .replace(/{USERID}/gi, user.id.toString())
+      .replace(/{(GROUPNAME|TITLE)}/gi, ctx.chat.title || "the group");
 
     // Parse inline custom buttons
-    const keyboard = buttons ? parseCustomButtons(buttons) : new InlineKeyboard();
+    const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
 
     // Send photo message with caption if image file_id exists
     if (mediaUrl) {
