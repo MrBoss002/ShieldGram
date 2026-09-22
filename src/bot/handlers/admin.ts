@@ -354,10 +354,11 @@ adminHandler.callbackQuery(/^prev_welcomeAll_(-?\d+)$/, async (ctx) => {
 
   if (welcomeText) {
     welcomeText = welcomeText
-      .replace(/{name}/g, firstName)
-      .replace(/{mention}/g, `<a href="tg://user?id=${ctx.from.id}">${firstName}</a>`)
-      .replace(/{title}/g, groupTitle)
-      .replace(/{groupname}/g, groupTitle);
+      .replace(/{MENTION}/gi, `<a href="tg://user?id=${ctx.from.id}">${firstName}</a>`)
+      .replace(/{(FIRSTNAME|NAME)}/gi, firstName)
+      .replace(/{USERNAME}/gi, ctx.from.username ? `@${ctx.from.username}` : firstName)
+      .replace(/{USERID}/gi, ctx.from.id.toString())
+      .replace(/{(GROUPNAME|TITLE)}/gi, groupTitle);
   }
 
   const keyboard = parseWelcomeButtons(w?.buttons);
