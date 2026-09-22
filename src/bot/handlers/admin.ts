@@ -227,32 +227,70 @@ adminHandler.callbackQuery(
     const config = await GroupConfig.findOne({ groupId });
     if (!config) return ctx.answerCallbackQuery({ text: "Group config not found!" });
 
-    if (featureKey === "forceSub" && !config.features.forceSub.enabled) {
-      if (!config.features.forceSub.channels || config.features.forceSub.channels.length === 0) {
-        return ctx.answerCallbackQuery({
-          text: "⚠️ Please set up a Force-Sub channel first!",
-          show_alert: true,
-        });
+    let alertNotice = "Updated feature setting!";
+
+    // --- CAPTCHA & FORCE-SUB MUTUAL EXCLUSION ---
+    if (featureKey === "captcha") {
+      const isEnabling = !config.features.captcha.enabled;
+      config.features.captcha.enabled = isEnabling;
+
+      if (isEnabling && config.features.forceSub.enabled) {
+        config.features.forceSub.enabled = false;
+        alertNotice = "💡 Captcha enabled! Force-Sub was automatically turned OFF because Captcha handles entry verification.";
+      }
+    } else if (featureKey === "forceSub") {
+      const isEnabling = !config.features.forceSub.enabled;
+
+      if (isEnabling) {
+        if (!config.features.forceSub.channels || config.features.forceSub.channels.length === 0) {
+          return ctx.answerCallbackQuery({
+            text: "⚠️ Please set up a Force-Sub channel first!",
+            show_alert: true,
+          });
+        }
+        if (config.features.captcha.enabled) {
+          config.features.captcha.enabled = false;
+          alertNotice = "💡 Force-Sub enabled! Captcha was automatically turned OFF to prevent duplicate join checks.";
+        }
+      }
+      config.features.forceSub.enabled = isEnabling;
+    }
+
+    // --- ANTI-LINK & ANTI-WEBLINK MUTUAL EXCLUSION ---
+    else if (featureKey === "antiLink") {
+      const isEnabling = !config.features.antiLink.enabled;
+      config.features.antiLink.enabled = isEnabling;
+
+      if (isEnabling && config.features.antiWeblink.enabled) {
+        config.features.antiWeblink.enabled = false;
+        alertNotice = "💡 Anti-Link enabled! Anti-Weblink was turned OFF because Anti-Link deletes all links (including Telegram links).";
+      }
+    } else if (featureKey === "antiWeblink") {
+      const isEnabling = !config.features.antiWeblink.enabled;
+      config.features.antiWeblink.enabled = isEnabling;
+
+      if (isEnabling && config.features.antiLink.enabled) {
+        config.features.antiLink.enabled = false;
+        alertNotice = "💡 Anti-Weblink enabled! Anti-Link was turned OFF (Anti-Weblink allows Telegram links but deletes external URLs).";
       }
     }
 
-    switch (featureKey) {
-      case "autoApprove": config.features.autoApprove.enabled = !config.features.autoApprove.enabled; break;
-      case "captcha": config.features.captcha.enabled = !config.features.captcha.enabled; break;
-      case "cleanAlerts": config.features.cleanSystemAlerts.enabled = !config.features.cleanSystemAlerts.enabled; break;
-      case "forceSub": config.features.forceSub.enabled = !config.features.forceSub.enabled; break;
-      case "welcome": config.features.welcome.enabled = !config.features.welcome.enabled; break;
-      case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
-      case "antiLink": config.features.antiLink.enabled = !config.features.antiLink.enabled; break;
-      case "antiWeblink": config.features.antiWeblink.enabled = !config.features.antiWeblink.enabled; break;
-      case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
+    // --- OTHER STANDARD TOGGLES ---
+    else {
+      switch (featureKey) {
+        case "autoApprove": config.features.autoApprove.enabled = !config.features.autoApprove.enabled; break;
+        case "cleanAlerts": config.features.cleanSystemAlerts.enabled = !config.features.cleanSystemAlerts.enabled; break;
+        case "welcome": config.features.welcome.enabled = !config.features.welcome.enabled; break;
+        case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
+        case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
+      }
     }
 
     await config.save();
     try {
       await ctx.editMessageReplyMarkup({ reply_markup: buildDashboardKeyboard(config) });
     } catch {}
-    await ctx.answerCallbackQuery({ text: "Updated feature setting!" });
+    await ctx.answerCallbackQuery({ text: alertNotice, show_alert: alertNotice !== "Updated feature setting!" });
   }
 );
 
@@ -564,10 +602,8 @@ adminHandler.on("message", async (ctx, next) => {
     let channelData = "";
 
     if (forwardedChat.username) {
-      // Public Channel
       channelData = `@${forwardedChat.username}`;
     } else {
-      // Private Channel: Generate actual invite link via Telegram API
       try {
         const invite = await ctx.api.createChatInviteLink(forwardedChat.id, {
           name: "ShieldGram Force-Sub Link",
@@ -584,6 +620,12 @@ adminHandler.on("message", async (ctx, next) => {
 
     config.features.forceSub.channels = [channelData];
     config.features.forceSub.enabled = true;
+    
+    // Auto-disable Captcha when Force-Sub is configured
+    if (config.features.captcha.enabled) {
+      config.features.captcha.enabled = false;
+    }
+
     await config.save();
     adminStates.delete(ctx.from.id);
 
