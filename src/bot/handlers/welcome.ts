@@ -62,18 +62,31 @@ export async function sendWelcomeToGroup(
       .replace(/{(GROUPNAME|TITLE)}/gi, groupTitle);
 
     const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
+    let sentMsg;
 
     if (mediaUrl) {
-      await ctx.api.sendPhoto(groupId, mediaUrl, {
+      sentMsg = await ctx.api.sendPhoto(groupId, mediaUrl, {
         caption: formattedText,
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
     } else {
-      await ctx.api.sendMessage(groupId, formattedText, {
+      sentMsg = await ctx.api.sendMessage(groupId, formattedText, {
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
+    }
+
+    // --- AUTO-DELETE FEATURE ---
+    // Schedules message deletion in group after 5 minutes (300,000 ms)
+    if (sentMsg) {
+      setTimeout(async () => {
+        try {
+          await ctx.api.deleteMessage(groupId, sentMsg.message_id);
+        } catch {
+          // Ignores errors if message was already manually deleted
+        }
+      }, 5 * 60 * 1000);
     }
   } catch (err) {
     console.error("[Group Welcome Error]:", err);
@@ -103,7 +116,7 @@ export async function sendWelcomeToPM(
 
     const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
 
-    // Try sending PM first
+    // Try sending PM first (No timer needed for PM messages)
     try {
       if (mediaUrl) {
         await ctx.api.sendPhoto(user.id, mediaUrl, {
@@ -118,7 +131,7 @@ export async function sendWelcomeToPM(
         });
       }
     } catch (pmError) {
-      // If PM fails, fallback to sending in the group
+      // If PM fails, fallback to sending in the group (Which handles auto-deletion)
       await sendWelcomeToGroup(ctx, groupId, user);
     }
   } catch (err) {
