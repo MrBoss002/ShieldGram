@@ -1,6 +1,6 @@
 import { Composer, Context } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
-import { Warn } from "../../models/Warn";
+import { Warn } from "../../models/warn";
 
 export const moderationHandler = new Composer();
 
