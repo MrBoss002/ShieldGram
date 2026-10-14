@@ -59,7 +59,7 @@ function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined 
   return keyboard;
 }
 
-// 1. UPDATED DASHBOARD KEYBOARD
+// 1. UPDATED DASHBOARD KEYBOARD WITH ANTI-BIO LINK
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
@@ -100,7 +100,11 @@ export const buildDashboardKeyboard = (config: any) => {
     )
     .row()
     .text(
-      `RULES CMD: ${f.rules?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `ANTI-BIO LINK: ${f.antiBioLink?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiBioLink_${config.groupId}`
+    )
+    .text(
+      `RULES: ${f.rules?.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_rules_${config.groupId}`
     )
     .row()
@@ -215,7 +219,7 @@ adminHandler.callbackQuery(/^open_config_(-?\d+)$/, async (ctx) => {
 
 // Feature Toggles
 adminHandler.callbackQuery(
-  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward)_(-?\d+)$/,
+  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink)_(-?\d+)$/,
   async (ctx) => {
     const featureKey = ctx.match[1];
     const groupId = parseInt(ctx.match[2]);
@@ -283,6 +287,7 @@ adminHandler.callbackQuery(
         case "welcome": config.features.welcome.enabled = !config.features.welcome.enabled; break;
         case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
         case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
+        case "antiBioLink": config.features.antiBioLink.enabled = !config.features.antiBioLink.enabled; break;
       }
     }
 
