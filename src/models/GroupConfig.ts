@@ -34,7 +34,7 @@ export interface IGroupConfig extends Document {
       enabled: boolean;
       text: string;
     };
-    // --- NEW MODERATION FEATURES ---
+    // --- MODERATION FEATURES ---
     antiLink: {
       enabled: boolean;
     };
@@ -42,6 +42,9 @@ export interface IGroupConfig extends Document {
       enabled: boolean;
     };
     antiForward: {
+      enabled: boolean;
+    };
+    antiBioLink: {
       enabled: boolean;
     };
   };
@@ -102,7 +105,7 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
           default: "No rules configured yet for this group.",
         },
       },
-      // --- NEW MODERATION SCHEMAS ---
+      // --- MODERATION SCHEMAS ---
       antiLink: {
         enabled: { type: Boolean, default: false },
       },
@@ -110,6 +113,9 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
         enabled: { type: Boolean, default: false },
       },
       antiForward: {
+        enabled: { type: Boolean, default: false },
+      },
+      antiBioLink: {
         enabled: { type: Boolean, default: false },
       },
     },
