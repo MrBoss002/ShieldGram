@@ -36,6 +36,65 @@ const scheduleAutoDelete = (ctx: Context, chatId: number, messageId: number) => 
   }, 5 * 60 * 1000); // 5 minutes in ms
 };
 
+// Helper to issue automated warnings from security middleware
+async function issueAutoWarn(
+  ctx: Context,
+  groupId: number,
+  user: { id: number; first_name: string },
+  reason: string
+) {
+  try {
+    let warnRecord = await Warn.findOne({ groupId, userId: user.id });
+    if (!warnRecord) {
+      warnRecord = new Warn({ groupId, userId: user.id, warnCount: 0, reasons: [] });
+    }
+
+    warnRecord.warnCount += 1;
+    warnRecord.reasons.push(reason);
+
+    const userMention = `<a href="tg://user?id=${user.id}">${user.first_name}</a>`;
+
+    if (warnRecord.warnCount >= 3) {
+      // Mute the user automatically on 3rd warning
+      await ctx.api.restrictChatMember(groupId, user.id, {
+        can_send_messages: false,
+        can_send_audios: false,
+        can_send_documents: false,
+        can_send_photos: false,
+        can_send_videos: false,
+        can_send_video_notes: false,
+        can_send_voice_notes: false,
+        can_send_other_messages: false,
+        can_add_web_page_previews: false,
+      });
+
+      warnRecord.warnCount = 0;
+      warnRecord.reasons = [];
+      await warnRecord.save();
+
+      const sentMsg = await ctx.reply(
+        `🚨 <b>3/3 Warnings Reached!</b>\n\n` +
+        `• <b>User:</b> ${userMention}\n` +
+        `• <b>Action:</b> Muted Automatically 🤐\n` +
+        `• <b>Reason for Final Warn:</b> ${reason}`,
+        { parse_mode: "HTML" }
+      );
+      scheduleAutoDelete(ctx, groupId, sentMsg.message_id);
+    } else {
+      await warnRecord.save();
+
+      const sentMsg = await ctx.reply(
+        `⚠️ ${userMention}, your message was deleted because ${reason}.\n\n` +
+        `<b>Warning ${warnRecord.warnCount}/3</b>`,
+        { parse_mode: "HTML" }
+      );
+      scheduleAutoDelete(ctx, groupId, sentMsg.message_id);
+    }
+  } catch (err) {
+    console.error("[Auto-Warn Error]:", err);
+  }
+}
+
 // Helper to parse target user and reason from Reply or Command Arguments
 async function parseTargetAndReason(ctx: Context): Promise<{
   targetUser?: { id: number; first_name: string; username?: string };
@@ -49,7 +108,7 @@ async function parseTargetAndReason(ctx: Context): Promise<{
     targetUser = ctx.message.reply_to_message.from;
     reason = ctx.match ? (ctx.match as string).trim() : "";
   } 
-  // Case 2: Command sent with arguments (e.g. /mute 123456789 spamming or /mute @username spamming)
+  // Case 2: Command sent with arguments
   else if (ctx.match) {
     const args = (ctx.match as string).trim().split(/\s+/);
     const firstArg = args[0];
@@ -57,7 +116,6 @@ async function parseTargetAndReason(ctx: Context): Promise<{
 
     if (firstArg) {
       if (/^\d+$/.test(firstArg)) {
-        // Target provided as User ID
         const userId = parseInt(firstArg, 10);
         try {
           const chatMember = await ctx.api.getChatMember(ctx.chat!.id, userId);
@@ -66,7 +124,6 @@ async function parseTargetAndReason(ctx: Context): Promise<{
           targetUser = { id: userId, first_name: `User (${userId})` };
         }
       } else if (firstArg.startsWith("@")) {
-        // Target provided as Username
         const usernameWithoutAt = firstArg.replace("@", "");
         targetUser = { id: 0, first_name: firstArg, username: usernameWithoutAt };
       }
@@ -116,9 +173,7 @@ moderationHandler.command("warn", async (ctx) => {
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
     const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
 
-    // Check if 3 warnings threshold reached
     if (warnRecord.warnCount >= 3) {
-      // Mute the user automatically
       await ctx.api.restrictChatMember(groupId, targetUser.id, {
         can_send_messages: false,
         can_send_audios: false,
@@ -131,7 +186,6 @@ moderationHandler.command("warn", async (ctx) => {
         can_add_web_page_previews: false,
       });
 
-      // Reset warnings counter after punishment
       warnRecord.warnCount = 0;
       warnRecord.reasons = [];
       await warnRecord.save();
@@ -429,58 +483,77 @@ moderationHandler.command("unban", async (ctx) => {
 });
 
 // =============================================================
-// 2. AUTOMATIC SECURITY FILTERS (ANTI-LINK / ANTI-FORWARD)
+// 2. AUTOMATIC SECURITY FILTERS WITH AUTO-WARNINGS
 // =============================================================
 
 moderationHandler.on("message", async (ctx, next) => {
-  // Only monitor messages in groups/supergroups
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") {
     return next();
   }
 
-  // Fetch group security settings
   const config = await GroupConfig.findOne({ groupId: ctx.chat.id });
   if (!config) return next();
 
   const { features } = config;
 
-  // Ignore admin messages from moderation filters
   const isAdmin = await isGroupAdmin(ctx);
   if (isAdmin) return next();
 
-  const entities = ctx.message.entities || ctx.message.caption_entities || [];
-  const hasLinkEntity = entities.some((e) =>
-    ["url", "text_link"].includes(e.type)
-  );
+  const user = ctx.from;
+  if (!user) return next();
 
-  // 1. ANTI-FORWARD ENFORCEMENT
+  const entities = ctx.message.entities || ctx.message.caption_entities || [];
+  const hasLinkEntity = entities.some((e) => ["url", "text_link"].includes(e.type));
+
+  // 1. ANTI-BIO LINK ENFORCEMENT
+  if (features.antiBioLink?.enabled) {
+    try {
+      const chatMember = await ctx.api.getChatMember(ctx.chat.id, user.id);
+      // Fetch full user details to check bio/about text
+      const fullUser = await ctx.api.getChat(user.id);
+      const bio = fullUser.bio || "";
+
+      const hasBioLink = /https?:\/\/|t\.me\/|telegram\.me\/|@[\w_]+/i.test(bio);
+
+      if (hasBioLink) {
+        await ctx.deleteMessage();
+        await issueAutoWarn(ctx, ctx.chat.id, user, "your bio contains a link");
+        return;
+      }
+    } catch (err) {
+      console.error(`[Moderation] Anti-Bio Link check failed in ${ctx.chat.id}:`, err);
+    }
+  }
+
+  // 2. ANTI-FORWARD ENFORCEMENT
   if (features.antiForward?.enabled && ctx.message.forward_origin) {
     try {
       await ctx.deleteMessage();
-      return; // Stop processing further once deleted
+      await issueAutoWarn(ctx, ctx.chat.id, user, "forwarded messages are restricted");
+      return;
     } catch (err) {
       console.error(`[Moderation] Failed to delete forwarded message in ${ctx.chat.id}:`, err);
     }
   }
 
-  // 2. ANTI-LINK ENFORCEMENT (Deletes ALL Links)
+  // 3. ANTI-LINK ENFORCEMENT (Deletes ALL Links)
   if (features.antiLink?.enabled && hasLinkEntity) {
     try {
       await ctx.deleteMessage();
+      await issueAutoWarn(ctx, ctx.chat.id, user, "sending links is restricted");
       return;
     } catch (err) {
       console.error(`[Moderation] Failed to delete link in ${ctx.chat.id}:`, err);
     }
   }
 
-  // 3. ANTI-WEBLINK ENFORCEMENT (Deletes Non-Telegram External Links)
+  // 4. ANTI-WEBLINK ENFORCEMENT (Deletes Non-Telegram External Links)
   if (features.antiWeblink?.enabled && hasLinkEntity) {
     const text = ctx.message.text || ctx.message.caption || "";
 
     const hasExternalLink = entities.some((entity) => {
       if (entity.type === "url") {
         const urlText = text.substring(entity.offset, entity.offset + entity.length);
-        // Delete if link DOES NOT contain t.me or telegram.me
         return !/t\.me|telegram\.me/i.test(urlText);
       }
       if (entity.type === "text_link" && entity.url) {
@@ -492,6 +565,7 @@ moderationHandler.on("message", async (ctx, next) => {
     if (hasExternalLink) {
       try {
         await ctx.deleteMessage();
+        await issueAutoWarn(ctx, ctx.chat.id, user, "external web links are restricted");
         return;
       } catch (err) {
         console.error(`[Moderation] Failed to delete web link in ${ctx.chat.id}:`, err);
