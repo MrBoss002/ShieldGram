@@ -410,7 +410,9 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
 
   const menuText =
     `👋 <b>Welcome Message Customization</b>\n\n` +
-    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
+    `🖼 IMAGE: ${hasImg ? "✅" : "❎"}\n` +
+    `📝 TEXT: ${hasTxt ? "✅" : "❎"}\n` +
+    `🔘 BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
     `Configure greeting messages, media, and interactive buttons for new members joining your group.`;
 
   await ctx.editMessageText(menuText, {
@@ -493,7 +495,9 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
 
   const menuText =
     `👋 <b>Welcome Message Customization</b>\n\n` +
-    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
+    `🖼 IMAGE: ${hasImg ? "✅" : "❎"}\n` +
+    `📝 TEXT: ${hasTxt ? "✅" : "❎"}\n` +
+    `🔘 BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
     `Configure greeting messages, media, and interactive buttons for new members joining your group.`;
 
   await ctx.editMessageText(menuText, {
@@ -519,7 +523,18 @@ adminHandler.callbackQuery(/^set_welcomeText_(-?\d+)$/, async (ctx) => {
   if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
 
   adminStates.set(ctx.from.id, { action: "AWAITING_WELCOME_TEXT", groupId });
-  await ctx.editMessageText("📝 Send your new welcome greeting text:", {
+  
+  const welcomePromptText =
+    `📝 <b>Send your new welcome greeting text:</b>\n\n` +
+    `You can use markdown format in your text. Use these placeholders where needed:\n\n` +
+    `• <code>{MENTION}</code> - Mention user\n` +
+    `• <code>{FIRSTNAME}</code> - User's first name\n` +
+    `• <code>{USERNAME}</code> - User's username\n` +
+    `• <code>{USERID}</code> - User's ID\n` +
+    `• <code>{GROUPNAME}</code> - Group name`;
+
+  await ctx.editMessageText(welcomePromptText, {
+    parse_mode: "HTML",
     reply_markup: new InlineKeyboard().text("🔙 BACK", `edit_welcome_${groupId}`),
   });
   await ctx.answerCallbackQuery();
@@ -548,17 +563,10 @@ adminHandler.callbackQuery(/^edit_rules_(-?\d+)$/, async (ctx) => {
 
   const rulesGuideText =
     `📜 <b>Group Rules & Regulations Setup</b>\n\n` +
-    `Send your group rules below. You can write your own or copy and customize the ready-to-use template below.\n\n` +
-    `✨ <b>Supported Formatting:</b>\n` +
-    `🔸 <code>&lt;b&gt;Bold&lt;/b&gt;</code> ➔ <b>Bold</b>\n` +
-    `🔸 <code>&lt;i&gt;Italic&lt;/i&gt;</code> ➔ <i>Italic</i>\n` +
-    `🔸 <code>&lt;a href="url"&gt;Link&lt;/a&gt;</code> ➔ <a href="https://example.com">Link</a>\n\n` +
-    `📋 <b>Ready-to-use Template:</b>\n` +
-    `<code>🛡️ &lt;b&gt;GROUP RULES&lt;/b&gt;\n\n1️⃣ Respect all members.\n2️⃣ No spam or unsolicited links.\n3️⃣ Follow admin instructions.</code>`;
+    `Send your group rules below. You can use standard markdown formatting for your regulations.`;
 
   await ctx.editMessageText(rulesGuideText, {
     parse_mode: "HTML",
-    link_preview_options: { is_disabled: true },
     reply_markup: buildRulesMenuKeyboard(await GroupConfig.findOne({ groupId })),
   });
   await ctx.answerCallbackQuery();
@@ -735,6 +743,7 @@ adminHandler.on("message", async (ctx, next) => {
   }
 
   if (action === "AWAITING_RULES_TEXT") {
+    // Preserve native entities/formatting sent by admin
     const newRules = ctx.message.text || "";
     if (!newRules.trim()) {
       return ctx.reply("❌ Please send a valid text for group rules.");
@@ -817,5 +826,6 @@ adminHandler.on("message", async (ctx, next) => {
       }
     );
   }
-return next();
+
+  return next();
 });
