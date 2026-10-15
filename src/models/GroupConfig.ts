@@ -47,6 +47,10 @@ export interface IGroupConfig extends Document {
     antiBioLink: {
       enabled: boolean;
     };
+    wordBlacklist: {
+      enabled: boolean;
+      words: string[];
+    };
   };
   createdAt: Date;
   updatedAt: Date;
@@ -117,6 +121,10 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
       },
       antiBioLink: {
         enabled: { type: Boolean, default: false },
+      },
+      wordBlacklist: {
+        enabled: { type: Boolean, default: false },
+        words: { type: [String], default: [] },
       },
     },
   },
