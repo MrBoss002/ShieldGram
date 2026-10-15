@@ -817,3 +817,5 @@ adminHandler.on("message", async (ctx, next) => {
       }
     );
   }
+return next();
+});
