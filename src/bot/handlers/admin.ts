@@ -14,7 +14,8 @@ const adminStates = new Map<
       | "AWAITING_RULES_TEXT"
       | "AWAITING_WELCOME_TEXT"
       | "AWAITING_WELCOME_PIC"
-      | "AWAITING_WELCOME_BUTTONS";
+      | "AWAITING_WELCOME_BUTTONS"
+      | "AWAITING_BANNED_WORDS";
     groupId: number;
     dashboardMessageId?: number;
   }
@@ -59,7 +60,7 @@ function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined 
   return keyboard;
 }
 
-// 1. UPDATED DASHBOARD KEYBOARD WITH ANTI-BIO LINK
+// 1. STREAMLINED MAIN DASHBOARD KEYBOARD
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
@@ -95,23 +96,16 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_antiForward_${config.groupId}`
     )
     .text(
-      `WELCOME: ${f.welcome?.enabled ? "🟢 ON" : "🔴 OFF"}`,
-      `toggle_welcome_${config.groupId}`
-    )
-    .row()
-    .text(
       `ANTI-BIO LINK: ${f.antiBioLink?.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_antiBioLink_${config.groupId}`
-    )
-    .text(
-      `RULES: ${f.rules?.enabled ? "🟢 ON" : "🔴 OFF"}`,
-      `toggle_rules_${config.groupId}`
     )
     .row()
     .text("📢 FSUB CHANNELS", `manage_fsub_${config.groupId}`)
     .row()
     .text("📝 WELCOME MSG", `edit_welcome_${config.groupId}`)
-    .text("📜 RULES TEXT", `edit_rules_${config.groupId}`);
+    .text("📜 RULES TEXT", `edit_rules_${config.groupId}`)
+    .row()
+    .text("🤬 WORD BLACKLIST", `edit_blacklist_${config.groupId}`);
 };
 
 // 2. FORCE-SUB MENU BUILDER
@@ -148,9 +142,10 @@ const buildFsubKeyboard = (config: any) => {
   return keyboard;
 };
 
-// 3. CLEAN 2-COLUMN WELCOME MENU BUILDER
+// 3. WELCOME MENU BUILDER (WITH INTEGRATED TOGGLE)
 const buildWelcomeMenuKeyboard = (config: any) => {
   const groupId = config.groupId;
+  const isWelcomeOn = config.features?.welcome?.enabled;
 
   return new InlineKeyboard()
     .text("🖼️ SET IMAGE", `set_welcomePic_${groupId}`)
@@ -162,7 +157,37 @@ const buildWelcomeMenuKeyboard = (config: any) => {
     .text("🔘 SET BUTTONS", `set_welcomeButtons_${groupId}`)
     .text("🗑️", `del_welcomeButtons_${groupId}`)
     .row()
-    .text("👁‍🗨 PREVIEW WELCOME MSG", `prev_welcomeAll_${groupId}`)
+    .text("👁‍🗨 PREVIEW", `prev_welcomeAll_${groupId}`)
+    .text(isWelcomeOn ? "🟢 WELCOME: ON" : "🔴 WELCOME: OFF", `toggle_welcome_${groupId}`)
+    .row()
+    .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
+};
+
+// 4. RULES MENU BUILDER (WITH INTEGRATED TOGGLE)
+const buildRulesMenuKeyboard = (config: any) => {
+  const groupId = config.groupId;
+  const isRulesOn = config.features?.rules?.enabled;
+
+  return new InlineKeyboard()
+    .text("👁‍🗨 PREVIEW", `prev_rules_${groupId}`)
+    .text("🗑️ DELETE", `del_rules_${groupId}`)
+    .row()
+    .text(isRulesOn ? "🟢 RULES CMD: ON" : "🔴 RULES CMD: OFF", `toggle_rules_${groupId}`)
+    .row()
+    .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
+};
+
+// 5. WORD BLACKLIST MENU BUILDER (WITH INTEGRATED TOGGLE)
+const buildBlacklistMenuKeyboard = (config: any) => {
+  const groupId = config.groupId;
+  const isBlacklistOn = config.features?.wordBlacklist?.enabled;
+
+  return new InlineKeyboard()
+    .text("➕ ADD WORDS", `add_blacklist_words_${groupId}`)
+    .text("🗑️ CLEAR LIST", `clear_blacklist_${groupId}`)
+    .row()
+    .text("📜 VIEW LIST", `view_blacklist_${groupId}`)
+    .text(isBlacklistOn ? "🟢 BANNED WORDS: ON" : "🔴 BANNED WORDS: OFF", `toggle_wordBlacklist_${groupId}`)
     .row()
     .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
 };
@@ -217,9 +242,9 @@ adminHandler.callbackQuery(/^open_config_(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// Feature Toggles
+// Feature Toggles (Handles Dashboard & Sub-Menu Toggles)
 adminHandler.callbackQuery(
-  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink)_(-?\d+)$/,
+  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink|wordBlacklist)_(-?\d+)$/,
   async (ctx) => {
     const featureKey = ctx.match[1];
     const groupId = parseInt(ctx.match[2]);
@@ -288,13 +313,25 @@ adminHandler.callbackQuery(
         case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
         case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
         case "antiBioLink": config.features.antiBioLink.enabled = !config.features.antiBioLink.enabled; break;
+        case "wordBlacklist": config.features.wordBlacklist.enabled = !config.features.wordBlacklist.enabled; break;
       }
     }
 
     await config.save();
+
     try {
-      await ctx.editMessageReplyMarkup({ reply_markup: buildDashboardKeyboard(config) });
+      // Update keyboard depending on where the toggle was pressed
+      if (featureKey === "welcome") {
+        await ctx.editMessageReplyMarkup({ reply_markup: buildWelcomeMenuKeyboard(config) });
+      } else if (featureKey === "rules") {
+        await ctx.editMessageReplyMarkup({ reply_markup: buildRulesMenuKeyboard(config) });
+      } else if (featureKey === "wordBlacklist") {
+        await ctx.editMessageReplyMarkup({ reply_markup: buildBlacklistMenuKeyboard(config) });
+      } else {
+        await ctx.editMessageReplyMarkup({ reply_markup: buildDashboardKeyboard(config) });
+      }
     } catch {}
+
     await ctx.answerCallbackQuery({ text: alertNotice, show_alert: alertNotice !== "Updated feature setting!" });
   }
 );
@@ -372,9 +409,9 @@ adminHandler.callbackQuery(/^edit_welcome_(-?\d+)$/, async (ctx) => {
   const hasBtn = !!config.features?.welcome?.buttons;
 
   const menuText =
-    `👋 <b>Welcome Message Customization</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}`;
+    `👋 <b>Welcome Message Customization</b>\n\n` +
+    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
+    `Configure greeting messages, media, and interactive buttons for new members joining your group.`;
 
   await ctx.editMessageText(menuText, {
     parse_mode: "HTML",
@@ -455,9 +492,9 @@ adminHandler.callbackQuery(/^del_welcome(Pic|Text|Buttons)_(-?\d+)$/, async (ctx
   const hasBtn = !!config.features?.welcome?.buttons;
 
   const menuText =
-    `👋 <b>Welcome Message Customization</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}`;
+    `👋 <b>Welcome Message Customization</b>\n\n` +
+    `IMAGE: ${hasImg ? "✅" : "❎"}  |  TEXT: ${hasTxt ? "✅" : "❎"}  |  BUTTONS: ${hasBtn ? "✅" : "❎"}\n\n` +
+    `Configure greeting messages, media, and interactive buttons for new members joining your group.`;
 
   await ctx.editMessageText(menuText, {
     parse_mode: "HTML",
@@ -510,42 +547,19 @@ adminHandler.callbackQuery(/^edit_rules_(-?\d+)$/, async (ctx) => {
   adminStates.set(ctx.from.id, { action: "AWAITING_RULES_TEXT", groupId });
 
   const rulesGuideText =
-    `📜 <b>GROUP REGULATION SETUP</b>\n\n` +
+    `📜 <b>Group Rules & Regulations Setup</b>\n\n` +
     `Send your group rules below. You can write your own or copy and customize the ready-to-use template below.\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `✨ <b>SUPPORTED FORMATTING</b>\n` +
-    `🔸 <code>&lt;b&gt;Bold Text&lt;/b&gt;</code> ➔ <b>Bold Text</b>\n` +
-    `🔸 <code>&lt;i&gt;Italic Text&lt;/i&gt;</code> ➔ <i>Italic Text</i>\n` +
-    `🔸 <code>&lt;a href="https://example.com"&gt;Link Text&lt;/a&gt;</code> ➔ <a href="https://example.com">Link Text</a>\n` +
-    `🔸 <code>&lt;code&gt;Monospace Code&lt;/code&gt;</code> ➔ <code>Monospace Code</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `📋 <b>READY-TO-USE TEMPLATE</b>\n` +
-    `<i>(Tap code below to copy, edit, and send)</i>\n\n` +
-    `<code>🛡️ &lt;b&gt;GROUP RULES &amp; REGULATIONS&lt;/b&gt;\n\n` +
-    `1️⃣ &lt;b&gt;Respect All Members&lt;/b&gt;\n` +
-    `• Keep discussions civil and friendly. No hate speech, harassment, or personal attacks.\n\n` +
-    `2️⃣ &lt;b&gt;No Spam or Unsolicited Promotion&lt;/b&gt;\n` +
-    `• Avoid posting self-promotional links, referral links, or mass spam messages without permission.\n\n` +
-    `3️⃣ &lt;b&gt;English/Primary Language Only&lt;/b&gt;\n` +
-    `• Please stick to the group's main language so moderators can review content effectively.\n\n` +
-    `4️⃣ &lt;b&gt;No NSFW / Illegal Content&lt;/b&gt;\n` +
-    `• Any explicit material, scams, or illegal activities will result in an immediate ban.\n\n` +
-    `5️⃣ &lt;b&gt;Follow Admin Instructions&lt;/b&gt;\n` +
-    `• Respect decisions made by group administrators and moderators.\n\n` +
-    `💡 &lt;i&gt;Violations may result in a mute or ban from the group.&lt;/i&gt;</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `👇 <b>Send your rules text below:</b>`;
-
-  const keyboard = new InlineKeyboard()
-    .text("👁‍🗨 PREVIEW", `prev_rules_${groupId}`)
-    .text("🗑️ DELETE", `del_rules_${groupId}`)
-    .row()
-    .text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
+    `✨ <b>Supported Formatting:</b>\n` +
+    `🔸 <code>&lt;b&gt;Bold&lt;/b&gt;</code> ➔ <b>Bold</b>\n` +
+    `🔸 <code>&lt;i&gt;Italic&lt;/i&gt;</code> ➔ <i>Italic</i>\n` +
+    `🔸 <code>&lt;a href="url"&gt;Link&lt;/a&gt;</code> ➔ <a href="https://example.com">Link</a>\n\n` +
+    `📋 <b>Ready-to-use Template:</b>\n` +
+    `<code>🛡️ &lt;b&gt;GROUP RULES&lt;/b&gt;\n\n1️⃣ Respect all members.\n2️⃣ No spam or unsolicited links.\n3️⃣ Follow admin instructions.</code>`;
 
   await ctx.editMessageText(rulesGuideText, {
     parse_mode: "HTML",
     link_preview_options: { is_disabled: true },
-    reply_markup: keyboard,
+    reply_markup: buildRulesMenuKeyboard(await GroupConfig.findOne({ groupId })),
   });
   await ctx.answerCallbackQuery();
 });
@@ -580,6 +594,86 @@ adminHandler.callbackQuery(/^del_rules_(-?\d+)$/, async (ctx) => {
   }
 
   await ctx.answerCallbackQuery({ text: "🗑️ Rules deleted successfully!", show_alert: false });
+  try {
+    await ctx.editMessageReplyMarkup({ reply_markup: buildRulesMenuKeyboard(config) });
+  } catch {}
+});
+
+// --- WORD BLACKLIST MANAGEMENT FLOW ---
+adminHandler.callbackQuery(/^edit_blacklist_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) {
+    return ctx.answerCallbackQuery({ text: "⚠️ Permission denied!", show_alert: true });
+  }
+
+  const config = await GroupConfig.findOne({ groupId });
+  if (!config) return ctx.answerCallbackQuery({ text: "Config not found!" });
+
+  const menuText =
+    `🚫 <b>Word Blacklist Settings</b>\n\n` +
+    `Automatically detect and delete messages containing restricted words, profanity, or prohibited terms to keep your group clean.`;
+
+  await ctx.editMessageText(menuText, {
+    parse_mode: "HTML",
+    reply_markup: buildBlacklistMenuKeyboard(config),
+  });
+  await ctx.answerCallbackQuery();
+});
+
+adminHandler.callbackQuery(/^add_blacklist_words_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
+
+  adminStates.set(ctx.from.id, { action: "AWAITING_BANNED_WORDS", groupId });
+
+  await ctx.editMessageText(
+    `➕ <b>Add Banned Words</b>\n\n` +
+      `Send the word or words you want to add. You can send multiple words separated by commas (e.g., <code>word1, badword2, scam link</code>):`,
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard().text("🔙 BACK", `edit_blacklist_${groupId}`),
+    }
+  );
+  await ctx.answerCallbackQuery();
+});
+
+adminHandler.callbackQuery(/^view_blacklist_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
+
+  const config = await GroupConfig.findOne({ groupId });
+  if (!config) return ctx.answerCallbackQuery();
+
+  const words = config.features?.wordBlacklist?.words || [];
+
+  if (words.length === 0) {
+    return ctx.answerCallbackQuery({ text: "ℹ️ No blacklisted words configured yet.", show_alert: true });
+  }
+
+  const formattedList = words.map((w, index) => `${index + 1}. <code>${w}</code>`).join("\n");
+
+  await ctx.reply(`📜 <b>Active Banned Words List (${words.length}):</b>\n\n${formattedList}`, {
+    parse_mode: "HTML",
+  });
+  await ctx.answerCallbackQuery();
+});
+
+adminHandler.callbackQuery(/^clear_blacklist_(-?\d+)$/, async (ctx) => {
+  const groupId = parseInt(ctx.match[1]);
+  if (!(await checkIsAdmin(ctx, groupId, ctx.from.id))) return;
+
+  const config = await GroupConfig.findOne({ groupId });
+  if (config) {
+    config.features.wordBlacklist.words = [];
+    config.features.wordBlacklist.enabled = false;
+    await config.save();
+  }
+
+  await ctx.answerCallbackQuery({ text: "🗑️ Banned words list cleared successfully!", show_alert: true });
+
+  try {
+    await ctx.editMessageReplyMarkup({ reply_markup: buildBlacklistMenuKeyboard(config) });
+  } catch {}
 });
 
 // --- CENTRAL INPUT LISTENER ---
@@ -595,6 +689,7 @@ adminHandler.on("message", async (ctx, next) => {
 
   const backWelcome = new InlineKeyboard().text("🔙 BACK TO WELCOME MENU", `edit_welcome_${groupId}`);
   const backDashboard = new InlineKeyboard().text("🔙 BACK TO DASHBOARD", `open_config_${groupId}`);
+  const backBlacklist = new InlineKeyboard().text("🔙 BACK TO BLACKLIST MENU", `edit_blacklist_${groupId}`);
 
   if (action === "AWAITING_FSUB_FORWARD") {
     const origin = ctx.message?.forward_origin;
@@ -626,7 +721,6 @@ adminHandler.on("message", async (ctx, next) => {
     config.features.forceSub.channels = [channelData];
     config.features.forceSub.enabled = true;
     
-    // Auto-disable Captcha when Force-Sub is configured
     if (config.features.captcha.enabled) {
       config.features.captcha.enabled = false;
     }
@@ -653,7 +747,7 @@ adminHandler.on("message", async (ctx, next) => {
 
     return ctx.reply("✅ <b>Group rules updated and enabled!</b>", {
       parse_mode: "HTML",
-      reply_markup: backDashboard,
+      reply_markup: new InlineKeyboard().text("🔙 BACK TO RULES MENU", `edit_rules_${groupId}`),
     });
   }
 
@@ -688,6 +782,40 @@ adminHandler.on("message", async (ctx, next) => {
       parse_mode: "HTML",
       reply_markup: backWelcome,
     });
+  }
+
+  if (action === "AWAITING_BANNED_WORDS") {
+    const rawInput = ctx.message.text || "";
+    if (!rawInput.trim()) {
+      return ctx.reply("❌ Please send valid words to add.");
+    }
+
+    // Split input by commas or newlines and clean them up
+    const newWords = rawInput
+      .split(/[,-\n]+/)
+      .map((w) => w.trim().toLowerCase())
+      .filter((w) => w.length > 0);
+
+    if (newWords.length === 0) {
+      return ctx.reply("❌ No valid words detected. Try again.");
+    }
+
+    // Merge without duplicates
+    const existingWords = config.features.wordBlacklist.words || [];
+    const mergedWords = Array.from(new Set([...existingWords, ...newWords]));
+
+    config.features.wordBlacklist.words = mergedWords;
+    config.features.wordBlacklist.enabled = true; // Auto-enable when words are added
+    await config.save();
+    adminStates.delete(ctx.from.id);
+
+    return ctx.reply(
+      `✅ <b>Successfully added ${newWords.length} new word(s)!</b>\nTotal blacklisted words: <b>${mergedWords.length}</b>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: backBlacklist,
+      }
+    );
   }
 
   return next();
