@@ -527,6 +527,11 @@ moderationHandler.on("message", async (ctx, next) => {
 
   // 2. ANTI-FORWARD ENFORCEMENT
   if (features.antiForward?.enabled && ctx.message.forward_origin) {
+    // Ignore automatic channel forwards from connected discussion channels
+    if (ctx.message.is_automatic_forward) {
+      return next();
+    }
+
     try {
       await ctx.deleteMessage();
       await issueAutoWarn(ctx, ctx.chat.id, user, "forwarded messages are restricted");
