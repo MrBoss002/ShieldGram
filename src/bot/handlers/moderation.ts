@@ -502,14 +502,36 @@ moderationHandler.on("message", async (ctx, next) => {
   const user = ctx.from;
   if (!user) return next();
 
+  const messageText = ctx.message.text || ctx.message.caption || "";
+  const lowerMessageText = messageText.toLowerCase();
+
   const entities = ctx.message.entities || ctx.message.caption_entities || [];
   const hasLinkEntity = entities.some((e) => ["url", "text_link"].includes(e.type));
 
-  // 1. ANTI-BIO LINK ENFORCEMENT
+  // 1. WORD BLACKLIST ENFORCEMENT
+  if (features.wordBlacklist?.enabled && features.wordBlacklist.words?.length > 0) {
+    const blacklistedWords = features.wordBlacklist.words;
+    
+    // Check if the message contains any blacklisted word/phrase
+    const matchedWord = blacklistedWords.find((word) => {
+      const regex = new RegExp(`\\b${word.toLowerCase().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
+      return regex.test(lowerMessageText) || lowerMessageText.includes(word.toLowerCase());
+    });
+
+    if (matchedWord) {
+      try {
+        await ctx.deleteMessage();
+        await issueAutoWarn(ctx, ctx.chat.id, user, `your message contained a prohibited word`);
+        return;
+      } catch (err) {
+        console.error(`[Moderation] Failed to delete blacklisted word message in ${ctx.chat.id}:`, err);
+      }
+    }
+  }
+
+  // 2. ANTI-BIO LINK ENFORCEMENT
   if (features.antiBioLink?.enabled) {
     try {
-      const chatMember = await ctx.api.getChatMember(ctx.chat.id, user.id);
-      // Fetch full user details to check bio/about text
       const fullUser = await ctx.api.getChat(user.id);
       const bio = fullUser.bio || "";
 
@@ -525,9 +547,8 @@ moderationHandler.on("message", async (ctx, next) => {
     }
   }
 
-  // 2. ANTI-FORWARD ENFORCEMENT
+  // 3. ANTI-FORWARD ENFORCEMENT
   if (features.antiForward?.enabled && ctx.message.forward_origin) {
-    // Ignore automatic channel forwards from connected discussion channels
     if (ctx.message.is_automatic_forward) {
       return next();
     }
@@ -541,7 +562,7 @@ moderationHandler.on("message", async (ctx, next) => {
     }
   }
 
-  // 3. ANTI-LINK ENFORCEMENT (Deletes ALL Links)
+  // 4. ANTI-LINK ENFORCEMENT (Deletes ALL Links)
   if (features.antiLink?.enabled && hasLinkEntity) {
     try {
       await ctx.deleteMessage();
@@ -552,13 +573,11 @@ moderationHandler.on("message", async (ctx, next) => {
     }
   }
 
-  // 4. ANTI-WEBLINK ENFORCEMENT (Deletes Non-Telegram External Links)
+  // 5. ANTI-WEBLINK ENFORCEMENT (Deletes Non-Telegram External Links)
   if (features.antiWeblink?.enabled && hasLinkEntity) {
-    const text = ctx.message.text || ctx.message.caption || "";
-
     const hasExternalLink = entities.some((entity) => {
       if (entity.type === "url") {
-        const urlText = text.substring(entity.offset, entity.offset + entity.length);
+        const urlText = messageText.substring(entity.offset, entity.offset + entity.length);
         return !/t\.me|telegram\.me/i.test(urlText);
       }
       if (entity.type === "text_link" && entity.url) {
