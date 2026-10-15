@@ -514,7 +514,7 @@ moderationHandler.on("message", async (ctx, next) => {
     
     // Check if the message contains any blacklisted word/phrase
     const matchedWord = blacklistedWords.find((word) => {
-      const regex = new RegExp(`\\b${word.toLowerCase().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
+      const regex = new RegExp(`\\b${word.toLowerCase().replace(/[\-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
       return regex.test(lowerMessageText) || lowerMessageText.includes(word.toLowerCase());
     });
 
