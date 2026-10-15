@@ -790,9 +790,9 @@ adminHandler.on("message", async (ctx, next) => {
       return ctx.reply("❌ Please send valid words to add.");
     }
 
-    // Split input by commas or newlines and clean them up
+    // Split input by commas, hyphens, or newlines and clean them up
     const newWords = rawInput
-      .split(/[,-\n]+/)
+      .split(/[\, \n\-]+/)
       .map((w) => w.trim().toLowerCase())
       .filter((w) => w.length > 0);
 
@@ -817,6 +817,3 @@ adminHandler.on("message", async (ctx, next) => {
       }
     );
   }
-
-  return next();
-});
