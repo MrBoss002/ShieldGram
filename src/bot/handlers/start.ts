@@ -1,6 +1,7 @@
 import { Composer, InlineKeyboard, Context } from "grammy";
 import { env } from "../../config/env";
 import { GroupConfig } from "../../models/GroupConfig";
+import { User } from "../../models/User";
 import { buildDashboardKeyboard } from "./admin";
 
 export const startHandler = new Composer();
@@ -17,6 +18,19 @@ async function checkIsAdmin(ctx: Context, groupId: number, userId: number): Prom
 
 startHandler.command("start", async (ctx) => {
   if (ctx.chat.type !== "private") return;
+
+  // --- RECORD UNIQUE USER ---
+  if (ctx.from) {
+    await User.findOneAndUpdate(
+      { userId: ctx.from.id },
+      {
+        userId: ctx.from.id,
+        username: ctx.from.username,
+        firstName: ctx.from.first_name || "User",
+      },
+      { upsert: true, new: true }
+    ).catch((err) => console.error("[User Tracking Error]:", err));
+  }
 
   const startPayload = ctx.match;
 
@@ -83,6 +97,40 @@ startHandler.command("start", async (ctx) => {
     parse_mode: "HTML",
     reply_markup: keyboard,
   });
+});
+
+// --- STATS COMMAND ---
+startHandler.command("stats", async (ctx) => {
+  if (ctx.chat.type !== "private") return;
+
+  try {
+    // 1. Count Total Unique Users
+    const totalUsers = await User.countDocuments();
+
+    // 2. Count Total Groups Configured
+    const totalGroups = await GroupConfig.countDocuments();
+
+    // 3. Count Total Unique F-Sub Channels across all groups
+    const configs = await GroupConfig.find({}, { "features.forceSub.channels": 1 });
+    const fSubSet = new Set<string>();
+    configs.forEach((cfg: any) => {
+      const channels = cfg.features?.forceSub?.channels || [];
+      channels.forEach((ch: string) => fSubSet.add(ch));
+    });
+    const totalFSubChannels = fSubSet.size;
+
+    const statsText =
+      `📊 <b>ShieldGram Analytics & Stats</b>\n\n` +
+      `👥 <b>Total Users:</b> <code>${totalUsers.toLocaleString()}</code>\n` +
+      `🏰 <b>Total Groups:</b> <code>${totalGroups.toLocaleString()}</code>\n` +
+      `📢 <b>F-Sub Channels:</b> <code>${totalFSubChannels.toLocaleString()}</code>\n\n` +
+      `⚡ <i>System status: Operational & Online</i>`;
+
+    await ctx.reply(statsText, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("[Stats Command Error]:", error);
+    await ctx.reply("❌ Failed to retrieve bot statistics.");
+  }
 });
 
 // --- NAVIGATION CALLBACKS ---
