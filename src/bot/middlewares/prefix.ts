@@ -9,16 +9,22 @@ export async function groupPrefixMiddleware(ctx: Context, next: NextFunction) {
 
     for (const prefix of prefixes) {
       if (text.startsWith(prefix)) {
-        // Change prefix internally to '/'
+        // 1. Rewrite text to start with '/'
         ctx.message.text = "/" + text.slice(prefix.length);
 
-        // Update command entity length so grammY parses the command properly
-        if (ctx.message.entities && ctx.message.entities.length > 0) {
-          const firstEntity = ctx.message.entities[0];
-          if (firstEntity.type === "bot_command" && firstEntity.offset === 0) {
-            ctx.message.entities[0].length = ctx.message.text.split(" ")[0].length;
-          }
-        }
+        // 2. Extract command name (e.g. '/warn')
+        const commandName = ctx.message.text.split(/\s+/)[0];
+
+        // 3. Force-create bot_command entity so grammY sees it as a real command
+        ctx.message.entities = [
+          {
+            type: "bot_command",
+            offset: 0,
+            length: commandName.length,
+          },
+          ...(ctx.message.entities || []),
+        ];
+
         break;
       }
     }
