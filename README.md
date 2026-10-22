@@ -18,13 +18,24 @@ ShieldGram (`@ShieldGramxBot`) provides seamless community protection and dynami
 
 ## ✨ Features
 
-- **📢 Dynamic Force-Subscribe Engine**: Intercepts chat messages and ensures members join required channels before chatting.
-- **🎟️ Real-Time Join Request Approver**: Native auto-approval for channel/group join requests in milliseconds with optional welcome PMs.
-- **🛡️ PM Captcha Guard**: Prevents automated spam accounts and userbots from raiding groups using single-click PM verification.
+### 🛡️ Moderation & Anti-Spam Security
+- **🔗 Anti-Link & Anti-Weblink Engine**: Detects and purges unauthorized Telegram invite links, external HTTP/HTTPS URLs, and domain references instantly.
+- **🚫 Anti-Forward Protection**: Automatically intercepts and deletes messages forwarded from channels, user profile forwards, or external chats to prevent promo raids.
+- **👤 Anti-Bio Link Guard**: Scans joining members' Telegram profiles and removes accounts featuring promo links or spam handles in their bio.
+- **🤬 Word Blacklist Filter**: Automatically redacts or deletes messages containing custom blacklisted terms, profanity, or banned phrases.
+- **⚡ Admin Moderation Commands**: Fast, responsive admin utilities for issuing warnings (`/warn`), muting (`/mute`), kicking (`/kick`), and banning (`/ban`) disruptive members.
+
+### 📢 Audience Growth & Force-Sub
+- **📈 Dynamic Force-Subscribe**: Intercepts chat activity and requires users to subscribe to up to multiple specified channels before sending messages.
+- **🎟️ Real-Time Join Request Approver**: Millisecond auto-approval for channel/group join requests with optional welcome PM delivery.
+- **🤖 PM Captcha Guard**: Prevents automated spam userbots from raiding group chats using single-click PM verification.
+
+### ⚙️ Group Management & Usability
+- **🔤 Multi-Prefix Command Support**: Use alternative prefixes (`.`, `?`, `$`, `~`) alongside default `/` commands seamlessly inside group chats.
+- **📊 Real-Time Analytics (`/stats`)**: Live system dashboard tracking total users, total active groups, and force-sub channel stats with interactive refresh triggers.
 - **🧹 System Alert Cleaner**: Automatically purges default service notifications (e.g., *"User joined"*, *"User left"*).
-- **👋 Custom Greetings**: Customizable Welcome & Goodbye messages supporting dynamic tags like `{user}` and `{group}`.
-- **📜 Direct `/rules` Command**: Delivers group rules straight to members' PMs to maintain clean chat flows.
-- **⚡ In-Place PM Admin Panel**: Interactive inline dashboard for instant feature toggles and management.
+- **👋 Interactive Welcome & Rules Engine**: Customizable Welcome & Goodbye messages supporting dynamic tags (`{user}`, `{group}`), HTML formatting, and direct PM rules delivery (`/rules`).
+- **⚡ In-Place PM Dashboard**: Real-time inline keyboard panel allowing group administrators to toggle features on and off instantly.
 
 ---
 
