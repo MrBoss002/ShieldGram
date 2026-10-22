@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import { env } from "../config/env";
+import { groupPrefixMiddleware } from "./middlewares/prefix";
 import { forceSubMiddleware, forceSubHandler } from "./middlewares/forceSub";
 import { systemCleanMiddleware } from "./middlewares/systemClean";
 import { startHandler } from "./handlers/start";
@@ -10,6 +11,9 @@ import { moderationHandler } from "./handlers/moderation";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
+
+// 0. Register Group Multi-Prefix Middleware First (rewrites ., ?, $, ~ to / inside groups)
+bot.use(groupPrefixMiddleware);
 
 // 1. Register Callback Handlers First (processes button clicks like "🔄 I Have Joined")
 bot.use(forceSubHandler);
