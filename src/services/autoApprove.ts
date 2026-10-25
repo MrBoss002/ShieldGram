@@ -1,7 +1,6 @@
 import { Api, InlineKeyboard } from "grammy";
 import { GroupConfig } from "../models/GroupConfig";
 
-// Helper function to parse custom buttons format: [Text](url) | [Text2](url)
 function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined {
   if (!buttonString || !buttonString.trim()) return undefined;
 
@@ -37,12 +36,18 @@ export const handleAutoApprove = async (
   sendWelcomePm: boolean
 ): Promise<void> => {
   try {
-    // Robustly extract chat and user from either direct context or chatJoinRequest payload
+    console.log("[AutoApprove Debug]: Triggered for update");
+
+    // Robustly extract chat and user from context or payload
     const chat = ctx.chat || ctx.chatJoinRequest?.chat;
     const user = ctx.from || ctx.chatJoinRequest?.from;
 
     if (!chat || !user) {
-      console.error("[AutoApprove Error]: Chat or User object is missing in context.");
+      console.error("[AutoApprove Error]: Missing chat or user object in context!", { 
+        hasChat: !!chat, 
+        hasUser: !!user, 
+        keys: Object.keys(ctx) 
+      });
       return;
     }
 
@@ -52,22 +57,26 @@ export const handleAutoApprove = async (
     const username = user.username;
     const groupTitle = chat.title || "the group";
 
-    // 1. CRITICAL: Approve the chat join request natively first
+    console.log(`[AutoApprove Debug]: Attempting to approve user ${userId} in group ${groupId}`);
+
+    // 1. Approve the chat join request natively
     if (typeof ctx.approveChatJoinRequest === "function") {
       await ctx.approveChatJoinRequest();
     } else {
       await api.approveChatJoinRequest(groupId, userId);
     }
 
-    // 2. Process PM Welcome Message (Isolated so it never blocks approval)
+    console.log(`[AutoApprove Success]: Successfully approved user ${userId} in group ${groupId}`);
+
+    // 2. Process PM Welcome Message if enabled
     if (sendWelcomePm) {
+      console.log("[AutoApprove Debug]: Fetching group config for welcome PM...");
       const config = await GroupConfig.findOne({ groupId });
       const welcomeConfig = config?.features?.welcome;
 
       let welcomeText = welcomeConfig?.message?.trim();
 
       if (welcomeText) {
-        // Universal tag replacements
         welcomeText = welcomeText
           .replace(/{MENTION}/gi, `<a href="tg://user?id=${userId}">${firstName}</a>`)
           .replace(/{(FIRSTNAME|NAME|name)}/gi, firstName)
@@ -75,13 +84,11 @@ export const handleAutoApprove = async (
           .replace(/{USERID}/gi, userId.toString())
           .replace(/{(GROUPNAME|TITLE|title)}/gi, groupTitle);
       } else {
-        // Fallback Default Message
         welcomeText = `👋 Hello <b>${firstName}</b>!\n\n😊 Your request to join <b>${groupTitle}</b> has been automatically approved! ✅\n\nWelcome to the community!\n\nIf you like, you can also use me in your group... Click /start and let's go 🤩`;
       }
 
       const keyboard = parseWelcomeButtons(welcomeConfig?.buttons);
 
-      // Attempt PM delivery with silent failure catching
       try {
         if (welcomeConfig?.mediaUrl) {
           await api.sendPhoto(userId, welcomeConfig.mediaUrl, {
@@ -95,11 +102,12 @@ export const handleAutoApprove = async (
             reply_markup: keyboard,
           });
         }
+        console.log(`[AutoApprove Debug]: Welcome PM sent successfully to user ${userId}`);
       } catch (pmError: any) {
         console.log(`[AutoApprove PM Skipped]: Could not message user ${userId} in PM (${pmError.message})`);
       }
     }
   } catch (error) {
-    console.error("[AutoApprove Service Error]:", error);
+    console.error("[AutoApprove Service Fatal Error]:", error);
   }
 };
