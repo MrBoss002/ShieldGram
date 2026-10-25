@@ -38,16 +38,11 @@ export const handleAutoApprove = async (
   try {
     console.log("[AutoApprove Debug]: Triggered for update");
 
-    // Robustly extract chat and user, prioritizing chatJoinRequest payload first
     const chat = ctx.chatJoinRequest?.chat || ctx.chat;
     const user = ctx.chatJoinRequest?.from || ctx.from;
 
     if (!chat || !user) {
-      console.error("[AutoApprove Error]: Missing chat or user object in context!", { 
-        hasChat: !!chat, 
-        hasUser: !!user, 
-        keys: Object.keys(ctx) 
-      });
+      console.error("[AutoApprove Error]: Missing chat or user object in context!");
       return;
     }
 
@@ -59,18 +54,13 @@ export const handleAutoApprove = async (
 
     console.log(`[AutoApprove Debug]: Attempting to approve user ${userId} in group ${groupId}`);
 
-    // 1. Approve the chat join request natively
-    if (typeof ctx.approveChatJoinRequest === "function") {
-      await ctx.approveChatJoinRequest();
-    } else {
-      await api.approveChatJoinRequest(groupId, userId);
-    }
+    // 1. Explicitly call the API method with parsed IDs
+    await api.approveChatJoinRequest(groupId, userId);
 
     console.log(`[AutoApprove Success]: Successfully approved user ${userId} in group ${groupId}`);
 
     // 2. Process PM Welcome Message if enabled
     if (sendWelcomePm) {
-      console.log("[AutoApprove Debug]: Fetching group config for welcome PM...");
       const config = await GroupConfig.findOne({ groupId });
       const welcomeConfig = config?.features?.welcome;
 
