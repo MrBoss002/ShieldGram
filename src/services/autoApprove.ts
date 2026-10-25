@@ -37,16 +37,29 @@ export const handleAutoApprove = async (
   sendWelcomePm: boolean
 ): Promise<void> => {
   try {
-    const groupId = ctx.chat.id;
-    const userId = ctx.from.id;
-    const firstName = ctx.from.first_name || "User";
-    const username = ctx.from.username;
-    const groupTitle = ctx.chat.title || "the group";
+    // Robustly extract chat and user from either direct context or chatJoinRequest payload
+    const chat = ctx.chat || ctx.chatJoinRequest?.chat;
+    const user = ctx.from || ctx.chatJoinRequest?.from;
 
-    // 1. Approve the chat join request natively
-    await api.approveChatJoinRequest(groupId, userId);
+    if (!chat || !user) {
+      console.error("[AutoApprove Error]: Chat or User object is missing in context.");
+      return;
+    }
 
-    // 2. Process PM Welcome Message
+    const groupId = chat.id;
+    const userId = user.id;
+    const firstName = user.first_name || "User";
+    const username = user.username;
+    const groupTitle = chat.title || "the group";
+
+    // 1. CRITICAL: Approve the chat join request natively first
+    if (typeof ctx.approveChatJoinRequest === "function") {
+      await ctx.approveChatJoinRequest();
+    } else {
+      await api.approveChatJoinRequest(groupId, userId);
+    }
+
+    // 2. Process PM Welcome Message (Isolated so it never blocks approval)
     if (sendWelcomePm) {
       const config = await GroupConfig.findOne({ groupId });
       const welcomeConfig = config?.features?.welcome;
@@ -54,7 +67,7 @@ export const handleAutoApprove = async (
       let welcomeText = welcomeConfig?.message?.trim();
 
       if (welcomeText) {
-        // Universal tag replacements (supports both styles seamlessly)
+        // Universal tag replacements
         welcomeText = welcomeText
           .replace(/{MENTION}/gi, `<a href="tg://user?id=${userId}">${firstName}</a>`)
           .replace(/{(FIRSTNAME|NAME|name)}/gi, firstName)
