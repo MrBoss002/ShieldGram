@@ -40,48 +40,50 @@ export const handleAutoApprove = async (
     const groupId = ctx.chat.id;
     const userId = ctx.from.id;
     const firstName = ctx.from.first_name || "User";
+    const username = ctx.from.username;
     const groupTitle = ctx.chat.title || "the group";
 
-    // Approve the chat join request natively
+    // 1. Approve the chat join request natively
     await api.approveChatJoinRequest(groupId, userId);
 
+    // 2. Process PM Welcome Message
     if (sendWelcomePm) {
-      // 1. Fetch Group Settings from Database
       const config = await GroupConfig.findOne({ groupId });
       const welcomeConfig = config?.features?.welcome;
 
-      // 2. Prepare Welcome Text & Placeholders
       let welcomeText = welcomeConfig?.message?.trim();
 
       if (welcomeText) {
-        // Dynamic placeholder replacements
+        // Universal tag replacements (supports both styles seamlessly)
         welcomeText = welcomeText
-          .replace(/{name}/g, firstName)
-          .replace(/{title}/g, groupTitle);
+          .replace(/{MENTION}/gi, `<a href="tg://user?id=${userId}">${firstName}</a>`)
+          .replace(/{(FIRSTNAME|NAME|name)}/gi, firstName)
+          .replace(/{USERNAME}/gi, username ? `@${username}` : firstName)
+          .replace(/{USERID}/gi, userId.toString())
+          .replace(/{(GROUPNAME|TITLE|title)}/gi, groupTitle);
       } else {
         // Fallback Default Message
-        welcomeText = `👋 Hello <b>${firstName}</b>!\n\n😊 Your request to join <b>${groupTitle}</b> has been automatically approved! ✅\n\n Welcome to the community!\n\nIf you like you can also use me in you'r group... Click the /start and let's Go 🤩`;
+        welcomeText = `👋 Hello <b>${firstName}</b>!\n\n😊 Your request to join <b>${groupTitle}</b> has been automatically approved! ✅\n\nWelcome to the community!\n\nIf you like, you can also use me in your group... Click /start and let's go 🤩`;
       }
 
-      // 3. Parse Custom Buttons
       const keyboard = parseWelcomeButtons(welcomeConfig?.buttons);
 
-      // 4. Send Image (if set) or Text Message
-      if (welcomeConfig?.mediaUrl) {
-        await api
-          .sendPhoto(userId, welcomeConfig.mediaUrl, {
+      // Attempt PM delivery with silent failure catching
+      try {
+        if (welcomeConfig?.mediaUrl) {
+          await api.sendPhoto(userId, welcomeConfig.mediaUrl, {
             caption: welcomeText,
             parse_mode: "HTML",
             reply_markup: keyboard,
-          })
-          .catch(() => {});
-      } else {
-        await api
-          .sendMessage(userId, welcomeText, {
+          });
+        } else {
+          await api.sendMessage(userId, welcomeText, {
             parse_mode: "HTML",
             reply_markup: keyboard,
-          })
-          .catch(() => {});
+          });
+        }
+      } catch (pmError: any) {
+        console.log(`[AutoApprove PM Skipped]: Could not message user ${userId} in PM (${pmError.message})`);
       }
     }
   } catch (error) {
