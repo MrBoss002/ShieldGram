@@ -38,9 +38,9 @@ export const handleAutoApprove = async (
   try {
     console.log("[AutoApprove Debug]: Triggered for update");
 
-    // Robustly extract chat and user from context or payload
-    const chat = ctx.chat || ctx.chatJoinRequest?.chat;
-    const user = ctx.from || ctx.chatJoinRequest?.from;
+    // Robustly extract chat and user, prioritizing chatJoinRequest payload first
+    const chat = ctx.chatJoinRequest?.chat || ctx.chat;
+    const user = ctx.chatJoinRequest?.from || ctx.from;
 
     if (!chat || !user) {
       console.error("[AutoApprove Error]: Missing chat or user object in context!", { 
