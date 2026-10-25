@@ -1,7 +1,6 @@
 import { Composer } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 import { handleAutoApprove } from "../../services/autoApprove";
-import { createCaptchaKeyboard } from "../../services/captcha";
 
 export const joinReqHandler = new Composer();
 
@@ -13,30 +12,18 @@ joinReqHandler.on("chat_join_request", async (ctx) => {
   try {
     const config = await GroupConfig.findOne({ groupId });
 
-    // Handle Auto-Approve if enabled
-    if (config && config.features.autoApprove.enabled) {
+    // Safely check if auto-approve is enabled using optional chaining
+    if (config?.features?.autoApprove?.enabled) {
       await handleAutoApprove(
         ctx.api as any,
         ctx,
         config.features.autoApprove.sendWelcomePm
       );
-    }
-
-    // Handle Captcha triggering in PM if enabled
-    if (config && config.features.captcha.enabled) {
-      const captchaKeyboard = createCaptchaKeyboard(groupId);
-      const chatTitle = ctx.chat.title.replace(/[*_`\[\]()]/g, "\\$&"); // Escape Markdown special characters
-
-      await ctx.api
-        .sendMessage(
-          userId,
-          `🛡️ **Verification Required**\n\nPlease click the button below to verify you are human before participating in **${chatTitle}**.`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: captchaKeyboard,
-          }
-        )
-        .catch(() => {});
+    } else {
+      // Fallback: If no config or autoApprove is disabled, approve the request anyway 
+      // so users aren't left hanging, or you can manage it based on your preference.
+      console.log(`[JoinReq]: No config found or autoApprove disabled for group ${groupId}. Approving natively.`);
+      await ctx.approveChatJoinRequest();
     }
   } catch (error) {
     console.error("[JoinReq Handler Error]:", error);
