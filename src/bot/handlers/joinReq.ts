@@ -20,10 +20,9 @@ joinReqHandler.on("chat_join_request", async (ctx) => {
         config.features.autoApprove.sendWelcomePm
       );
     } else {
-      // Fallback: If no config or autoApprove is disabled, approve the request anyway 
-      // so users aren't left hanging, or you can manage it based on your preference.
+      // Fallback: Approve natively using the required userId argument
       console.log(`[JoinReq]: No config found or autoApprove disabled for group ${groupId}. Approving natively.`);
-      await ctx.approveChatJoinRequest();
+      await ctx.approveChatJoinRequest(userId);
     }
   } catch (error) {
     console.error("[JoinReq Handler Error]:", error);
