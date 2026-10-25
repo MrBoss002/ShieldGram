@@ -40,7 +40,7 @@ export function parseCustomButtons(buttonString: string): InlineKeyboard {
   return keyboard;
 }
 
-// --- HELPER 1: SEND WELCOME TO GROUP (FOR NORMAL JOINS) ---
+// --- HELPER 1: SEND WELCOME TO GROUP (FOR NORMAL PUBLIC JOINS) ---
 export async function sendWelcomeToGroup(
   ctx: Context,
   groupId: number,
@@ -93,7 +93,7 @@ export async function sendWelcomeToGroup(
   }
 }
 
-// --- HELPER 2: SEND WELCOME TO PM WITH GROUP FALLBACK (FOR APPROVED JOINS) ---
+// --- HELPER 2: SEND WELCOME TO PM ONLY (FOR APPROVED JOINS) ---
 export async function sendWelcomeToPM(
   ctx: Context,
   groupId: number,
@@ -116,7 +116,7 @@ export async function sendWelcomeToPM(
 
     const keyboard = buttons ? parseCustomButtons(buttons) : undefined;
 
-    // Try sending PM first (No timer needed for PM messages)
+    // Try sending PM directly utilizing the join request permission window
     try {
       if (mediaUrl) {
         await ctx.api.sendPhoto(user.id, mediaUrl, {
@@ -130,16 +130,16 @@ export async function sendWelcomeToPM(
           reply_markup: keyboard,
         });
       }
-    } catch (pmError) {
-      // If PM fails, fallback to sending in the group (Which handles auto-deletion)
-      await sendWelcomeToGroup(ctx, groupId, user);
+    } catch (pmError: any) {
+      // 🛑 SILENT FAIL: Log quietly, DO NOT fall back to group chat!
+      console.log(`[PM Welcome Skipped]: Could not message user ${user.id} in PM (${pmError.message})`);
     }
   } catch (err) {
     console.error("[PM Welcome Error]:", err);
   }
 }
 
-// --- EVENT 1: DIRECT / NORMAL JOINS ---
+// --- EVENT: DIRECT / NORMAL PUBLIC JOINS ---
 welcomeHandler.on("chat_member", async (ctx) => {
   const { old_chat_member, new_chat_member } = ctx.chatMember;
 
@@ -149,22 +149,6 @@ welcomeHandler.on("chat_member", async (ctx) => {
   if (!wasNotMember || !isNowMember) return;
   if (new_chat_member.user.is_bot) return;
 
-  // Sends to Group
+  // Sends to Group for normal public joins
   await sendWelcomeToGroup(ctx, ctx.chat.id, new_chat_member.user);
-});
-
-// --- EVENT 2: JOIN REQUEST APPROVALS ---
-welcomeHandler.on("chat_join_request", async (ctx) => {
-  const groupId = ctx.chat.id;
-  const user = ctx.from;
-
-  try {
-    // Approve the join request
-    await ctx.approveChatJoinRequest(user.id);
-
-    // Sends to PM (Falls back to Group if PM fails)
-    await sendWelcomeToPM(ctx, groupId, user);
-  } catch (err) {
-    console.error("[Auto-Approve Error]:", err);
-  }
 });
