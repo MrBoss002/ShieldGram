@@ -18,7 +18,7 @@ setGppHandler.command("setgpp", async (ctx) => {
     const isAdmin = chatMember.status === "administrator" || chatMember.status === "creator";
 
     if (!isAdmin) {
-      return ctx.reply("❌ **Access Denied:** Only group administrators can change the group profile picture.");
+      return ctx.reply("❌ Access Denied: Only group administrators can change the group profile picture.");
     }
 
     // 3. Check if the user replied to an image/photo
