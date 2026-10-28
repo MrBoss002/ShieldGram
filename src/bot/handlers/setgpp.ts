@@ -1,4 +1,5 @@
-import { Composer } from "grammy";
+import { Composer, InputFile } from "grammy";
+import { env } from "../../config/env";
 
 export const setGppHandler = new Composer();
 
@@ -28,12 +29,10 @@ setGppHandler.command("setgpp", async (ctx) => {
       return ctx.reply("❌ Failed to retrieve image file from Telegram.");
     }
 
-    const fileUrl = `https://api.telegram.org/file/bot${ctx.token}/${filePath}`;
+    const fileUrl = `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${filePath}`;
 
-    // 5. Update the group profile photo
-    await ctx.api.setChatPhoto(ctx.chat.id, {
-      source: fileUrl,
-    });
+    // 5. Update the group profile photo using gramY's InputFile helper
+    await ctx.api.setChatPhoto(ctx.chat.id, InputFile.fromUrl(fileUrl));
 
     await ctx.reply("✅ Group profile picture has been updated successfully!");
   } catch (error: any) {
