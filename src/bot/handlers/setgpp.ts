@@ -31,8 +31,8 @@ setGppHandler.command("setgpp", async (ctx) => {
 
     const fileUrl = `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${filePath}`;
 
-    // 5. Update the group profile photo using gramY's InputFile helper
-    await ctx.api.setChatPhoto(ctx.chat.id, InputFile.fromUrl(fileUrl));
+    // 5. Update group photo using new InputFile({ url: ... })
+    await ctx.api.setChatPhoto(ctx.chat.id, new InputFile({ url: fileUrl }));
 
     await ctx.reply("✅ Group profile picture has been updated successfully!");
   } catch (error: any) {
