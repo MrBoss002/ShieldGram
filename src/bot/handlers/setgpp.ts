@@ -5,12 +5,23 @@ export const setGppHandler = new Composer();
 
 setGppHandler.command("setgpp", async (ctx) => {
   try {
-    // 1. Check if the bot is used in a group or supergroup
+    // 1. Check if the command is used in a group or supergroup
     if (ctx.chat.type === "private") {
       return ctx.reply("❌ This command can only be used inside a group chat!");
     }
 
-    // 2. Check if the user replied to an image/photo
+    // 2. Check if the user is an admin or creator
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const chatMember = await ctx.getChatMember(userId);
+    const isAdmin = chatMember.status === "administrator" || chatMember.status === "creator";
+
+    if (!isAdmin) {
+      return ctx.reply("❌ **Access Denied:** Only group administrators can change the group profile picture.");
+    }
+
+    // 3. Check if the user replied to an image/photo
     const repliedMessage = ctx.message?.reply_to_message;
     const photo = repliedMessage?.photo;
 
@@ -18,10 +29,10 @@ setGppHandler.command("setgpp", async (ctx) => {
       return ctx.reply("❌ Please reply to an image with the `/setgpp` command to update the group profile picture.");
     }
 
-    // 3. Get the highest quality photo file ID (last item in the array)
+    // 4. Get the highest quality photo file ID (last item in the array)
     const fileId = photo[photo.length - 1].file_id;
 
-    // 4. Retrieve the file path from Telegram servers
+    // 5. Retrieve the file path from Telegram servers
     const file = await ctx.api.getFile(fileId);
     const filePath = file.file_path;
     
@@ -31,7 +42,7 @@ setGppHandler.command("setgpp", async (ctx) => {
 
     const fileUrl = `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${filePath}`;
 
-    // 5. Update group photo using new InputFile({ url: ... })
+    // 6. Update group profile photo
     await ctx.api.setChatPhoto(ctx.chat.id, new InputFile({ url: fileUrl }));
 
     await ctx.reply("✅ Group profile picture has been updated successfully!");
