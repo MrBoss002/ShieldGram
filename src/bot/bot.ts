@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import { env } from "../config/env";
+import { setGppHandler } from "./handlers/setgpp";
 import { groupPrefixMiddleware } from "./middlewares/prefix";
 import { forceSubMiddleware, forceSubHandler } from "./middlewares/forceSub";
 import { systemCleanMiddleware } from "./middlewares/systemClean";
@@ -28,6 +29,7 @@ bot.use(forceSubMiddleware);
 bot.use(joinReqHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
+bot.use(setGppHandler);
 bot.use(welcomeHandler); // Handles both direct joins & approved join requests
 bot.use(rulesHandler);
 
