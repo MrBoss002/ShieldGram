@@ -28,12 +28,12 @@ bot.use(forceSubMiddleware);
 
 // 3. Register Handlers & Composers
 bot.use(joinReqHandler);
+bot.use(commandCleanerHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
 bot.use(welcomeHandler); // Handles both direct joins & approved join requests
 bot.use(rulesHandler);
-bot.use(commandCleanerHandler);
 
 // 4. Global Error Handler
 bot.catch((err) => {
