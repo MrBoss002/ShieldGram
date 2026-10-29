@@ -4,8 +4,8 @@ export const purgeHandler = new Composer();
 
 purgeHandler.command("purge", async (ctx) => {
   try {
-    // Only allow in groups/supergroups
-    if (ctx.chat.type === "private") {
+    // Ensure we are inside a group message
+    if (!ctx.chat || ctx.chat.type === "private" || !ctx.message) {
       return ctx.reply("❌ The <code>/purge</code> command can only be used in groups.", { parse_mode: "HTML" });
     }
 
@@ -16,7 +16,7 @@ purgeHandler.command("purge", async (ctx) => {
     }
 
     // Must be a reply to a message
-    const replyMessage = ctx.message?.reply_to_message;
+    const replyMessage = ctx.message.reply_to_message;
     if (!replyMessage) {
       return ctx.reply("⚠️ Please reply to the starting message you want to purge from.");
     }
