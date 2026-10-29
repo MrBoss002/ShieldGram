@@ -7,11 +7,10 @@ commandCleanerHandler.on("message:text", async (ctx, next) => {
   try {
     if (ctx.chat.type === "private") return next();
 
-    const text = ctx.message.text;
+    const text = ctx.message.text.trim();
 
-    // Enhanced Regex: Matches standard commands (/cmd), commands with bot mentions (/cmd@bot), 
-    // and other command triggers like !, ?, ., etc. followed by text.
-    const isCommand = /^[/\.!?,$~$][a-zA-Z0-9_]+(@[a-zA-Z0-9_]+)?(\s.*)?$/.test(text) || /^[/\.!?,$~$][a-zA-Z0-9_]+$/.test(text);
+    // Check if message begins with standard command prefixes
+    const isCommand = /^[/\.!?,$~$]\w+/.test(text);
 
     if (isCommand) {
       const config = await GroupConfig.findOne({ groupId: ctx.chat.id });
@@ -21,7 +20,7 @@ commandCleanerHandler.on("message:text", async (ctx, next) => {
           try {
             await ctx.deleteMessage();
           } catch (err) {
-            // Fails silently if bot lacks 'Delete Messages' admin permission
+            // Silently ignore if bot lacks 'Delete Messages' permission
           }
         }, 1000);
       }
@@ -30,5 +29,6 @@ commandCleanerHandler.on("message:text", async (ctx, next) => {
     console.error("[CommandCleaner Error]:", error);
   }
 
+  // Pass execution down to the command handlers below
   return next();
 });
