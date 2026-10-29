@@ -12,6 +12,7 @@ import { rulesHandler } from "./handlers/rules";
 import { moderationHandler } from "./handlers/moderation";
 import { commandCleanerHandler } from "./handlers/commandCleaner";
 import { purgeHandler } from "./handlers/purge";
+import { pinHandler } from "./handlers/pin";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
@@ -31,6 +32,7 @@ bot.use(forceSubMiddleware);
 bot.use(joinReqHandler);
 bot.use(commandCleanerHandler);
 bot.use(purgeHandler);
+bot.use(pinHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
