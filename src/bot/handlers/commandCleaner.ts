@@ -5,20 +5,18 @@ export const commandCleanerHandler = new Composer();
 
 commandCleanerHandler.on("message:text", async (ctx, next) => {
   try {
-    // Only process in group or supergroup chats
     if (ctx.chat.type === "private") return next();
 
     const text = ctx.message.text;
 
-    // Check if the message starts with command prefixes (e.g., /, !, ?, .)
-    const isCommand = /^[/\.!?,$~$].*/.test(text);
+    // Enhanced Regex: Matches standard commands (/cmd), commands with bot mentions (/cmd@bot), 
+    // and other command triggers like !, ?, ., etc. followed by text.
+    const isCommand = /^[/\.!?,$~$][a-zA-Z0-9_]+(@[a-zA-Z0-9_]+)?(\s.*)?$/.test(text) || /^[/\.!?,$~$][a-zA-Z0-9_]+$/.test(text);
 
     if (isCommand) {
-      // Check group database settings
       const config = await GroupConfig.findOne({ groupId: ctx.chat.id });
 
       if (config?.features?.cleanCmd?.enabled) {
-        // Delete command message after 1 second
         setTimeout(async () => {
           try {
             await ctx.deleteMessage();
@@ -32,6 +30,5 @@ commandCleanerHandler.on("message:text", async (ctx, next) => {
     console.error("[CommandCleaner Error]:", error);
   }
 
-  // Continue to execute other bot plugins/commands normally
   return next();
 });
