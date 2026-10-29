@@ -60,7 +60,7 @@ function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined 
   return keyboard;
 }
 
-// 1. STREAMLINED MAIN DASHBOARD KEYBOARD
+// 1. STREAMLINED MAIN DASHBOARD KEYBOARD (Reordered & CLEAN CMD added)
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
@@ -69,8 +69,8 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_autoApprove_${config.groupId}`
     )
     .text(
-      `CAPTCHA: ${f.captcha?.enabled ? "🟢 ON" : "🔴 OFF"}`,
-      `toggle_captcha_${config.groupId}`
+      `FORCE-SUB: ${f.forceSub?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_forceSub_${config.groupId}`
     )
     .row()
     .text(
@@ -78,8 +78,8 @@ export const buildDashboardKeyboard = (config: any) => {
       `toggle_cleanAlerts_${config.groupId}`
     )
     .text(
-      `FORCE-SUB: ${f.forceSub?.enabled ? "🟢 ON" : "🔴 OFF"}`,
-      `toggle_forceSub_${config.groupId}`
+      `CLEAN CMD: ${f.cleanCmd?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_cleanCmd_${config.groupId}`
     )
     .row()
     .text(
@@ -244,7 +244,7 @@ adminHandler.callbackQuery(/^open_config_(-?\d+)$/, async (ctx) => {
 
 // Feature Toggles (Handles Dashboard & Sub-Menu Toggles)
 adminHandler.callbackQuery(
-  /^toggle_(autoApprove|captcha|cleanAlerts|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink|wordBlacklist)_(-?\d+)$/,
+  /^toggle_(autoApprove|captcha|cleanAlerts|cleanCmd|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink|wordBlacklist)_(-?\d+)$/,
   async (ctx) => {
     const featureKey = ctx.match[1];
     const groupId = parseInt(ctx.match[2]);
@@ -309,6 +309,7 @@ adminHandler.callbackQuery(
       switch (featureKey) {
         case "autoApprove": config.features.autoApprove.enabled = !config.features.autoApprove.enabled; break;
         case "cleanAlerts": config.features.cleanSystemAlerts.enabled = !config.features.cleanSystemAlerts.enabled; break;
+        case "cleanCmd": config.features.cleanCmd.enabled = !config.features.cleanCmd.enabled; break;
         case "welcome": config.features.welcome.enabled = !config.features.welcome.enabled; break;
         case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
         case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
@@ -743,7 +744,6 @@ adminHandler.on("message", async (ctx, next) => {
   }
 
   if (action === "AWAITING_RULES_TEXT") {
-    // Preserve native entities/formatting sent by admin
     const newRules = ctx.message.text || "";
     if (!newRules.trim()) {
       return ctx.reply("❌ Please send a valid text for group rules.");
@@ -799,7 +799,6 @@ adminHandler.on("message", async (ctx, next) => {
       return ctx.reply("❌ Please send valid words to add.");
     }
 
-    // Split input by commas, hyphens, or newlines and clean them up
     const newWords = rawInput
       .split(/[\, \n\-]+/)
       .map((w) => w.trim().toLowerCase())
@@ -809,12 +808,11 @@ adminHandler.on("message", async (ctx, next) => {
       return ctx.reply("❌ No valid words detected. Try again.");
     }
 
-    // Merge without duplicates
     const existingWords = config.features.wordBlacklist.words || [];
     const mergedWords = Array.from(new Set([...existingWords, ...newWords]));
 
     config.features.wordBlacklist.words = mergedWords;
-    config.features.wordBlacklist.enabled = true; // Auto-enable when words are added
+    config.features.wordBlacklist.enabled = true;
     await config.save();
     adminStates.delete(ctx.from.id);
 
