@@ -6,7 +6,7 @@ export interface IGroupConfig extends Document {
   features: {
     forceSub: {
       enabled: boolean;
-      channels: string[]; // List of channel usernames or IDs (e.g. ["@channel1", "-100123456789"])
+      channels: string[]; // List of channel usernames or IDs
       autoDeleteSeconds: number;
     };
     autoApprove: {
@@ -28,6 +28,9 @@ export interface IGroupConfig extends Document {
       enabled: boolean;
     };
     cleanSystemAlerts: {
+      enabled: boolean;
+    };
+    cleanCmd: {
       enabled: boolean;
     };
     rules: {
@@ -101,6 +104,9 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
       },
       cleanSystemAlerts: {
         enabled: { type: Boolean, default: true },
+      },
+      cleanCmd: {
+        enabled: { type: Boolean, default: false },
       },
       rules: {
         enabled: { type: Boolean, default: false },
