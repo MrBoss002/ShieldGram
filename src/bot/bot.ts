@@ -10,6 +10,7 @@ import { welcomeHandler } from "./handlers/welcome"; // Handles welcome msgs, no
 import { joinReqHandler } from "./handlers/joinReq";
 import { rulesHandler } from "./handlers/rules";
 import { moderationHandler } from "./handlers/moderation";
+import { commandCleanerHandler } from "./handlers/commandCleaner";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
@@ -32,6 +33,7 @@ bot.use(adminHandler);
 bot.use(setGppHandler);
 bot.use(welcomeHandler); // Handles both direct joins & approved join requests
 bot.use(rulesHandler);
+bot.use(commandCleanerHandler);
 
 // 4. Global Error Handler
 bot.catch((err) => {
