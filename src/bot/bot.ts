@@ -11,6 +11,7 @@ import { joinReqHandler } from "./handlers/joinReq";
 import { rulesHandler } from "./handlers/rules";
 import { moderationHandler } from "./handlers/moderation";
 import { commandCleanerHandler } from "./handlers/commandCleaner";
+import { purgeHandler } from "./handlers/purge";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
@@ -29,6 +30,7 @@ bot.use(forceSubMiddleware);
 // 3. Register Handlers & Composers
 bot.use(joinReqHandler);
 bot.use(commandCleanerHandler);
+bot.use(purgeHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
