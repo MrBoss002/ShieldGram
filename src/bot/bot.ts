@@ -14,6 +14,7 @@ import { commandCleanerHandler } from "./handlers/commandCleaner";
 import { purgeHandler } from "./handlers/purge";
 import { pinHandler } from "./handlers/pin";
 import { saveHandler } from "./handlers/save";
+import { infoHandler } from "./handlers/info";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
@@ -35,6 +36,7 @@ bot.use(commandCleanerHandler);
 bot.use(purgeHandler);
 bot.use(pinHandler);
 bot.use(saveHandler);
+bot.use(infoHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
