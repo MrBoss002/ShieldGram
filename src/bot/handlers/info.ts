@@ -2,7 +2,35 @@ import { Composer } from "grammy";
 
 export const infoHandler = new Composer();
 
-// --- 1. /infou (User Information) ---
+// --- 0. Universal /info Help Manual ---
+infoHandler.command("info", async (ctx) => {
+  try {
+    const helpText = 
+      `🔍 <b>SHIELDGRAM INFO SUITE MANUAL</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━\n` +
+      `Welcome to the universal lookup suite! Choose a sub-command below:\n\n` +
+      `👤 <b>/infou</b> [User ID / @username / Reply]\n` +
+      `   • <i>Fetches user profile details, ID, and premium status.</i>\n` +
+      `   • <i>In groups:</i> Reply to any user's message.\n` +
+      `   • <i>In PM:</i> Forward a message from a user and reply with <code>/infou</code>.\n\n` +
+      `🏷️ <b>/infog</b> [Group ID / @group / Reply to Forward]\n` +
+      `   • <i>Fetches group title, member count, admin count, and description.</i>\n\n` +
+      `📢 <b>/infoc</b> [Channel ID / @channel / Reply to Forward]\n` +
+      `   • <i>Fetches channel title, subscriber count, and description.</i>\n\n` +
+      `💡 <b>Pro-Tip & Anti-Forwarding Warning:</b>\n` +
+      `If a group has <b>Protect Content (anti-forwarding)</b> enabled, forwarding messages out of it might be blocked or trigger restrictions.\n` +
+      `*We recommend using our chat in **Private Messages (PM)** to safely forward messages and look up details without hitting group blocks!*` +
+      `━━━━━━━━━━━━━━━━━━━\n` +
+      `🛡️ <i>ShieldGram Security Suite</i>`;
+
+    await ctx.reply(helpText, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("[Info Help Error]:", error);
+  }
+});
+
+
+// --- 1. /infou (User Information - Enhanced for PM Forwards & Group Replies) ---
 infoHandler.command("infou", async (ctx) => {
   try {
     if (!ctx.chat || !ctx.message) return;
@@ -11,16 +39,23 @@ infoHandler.command("infou", async (ctx) => {
 
     const replyMsg = ctx.message.reply_to_message as any;
     if (replyMsg) {
-      // Check modern forward_origin or legacy forward_from
-      if (replyMsg.forward_origin && replyMsg.forward_origin.type === "user") {
-        targetUserId = replyMsg.forward_origin.sender_user?.id;
-      } else if (replyMsg.forward_from) {
+      // Check modern forward_origin for user sender
+      if (replyMsg.forward_origin) {
+        if (replyMsg.forward_origin.type === "user") {
+          targetUserId = replyMsg.forward_origin.sender_user?.id;
+        } else if (replyMsg.forward_origin.type === "hidden_user") {
+          return ctx.reply("⚠️ <b>Cannot fetch user info:</b> This user has hidden their profile name/forward privacy settings.", { parse_mode: "HTML" });
+        }
+      } 
+      // Fallback legacy checks for forwards and direct message authors
+      if (!targetUserId && replyMsg.forward_from) {
         targetUserId = replyMsg.forward_from.id;
-      } else if (replyMsg.from) {
+      } else if (!targetUserId && replyMsg.from) {
         targetUserId = replyMsg.from.id;
       }
     }
 
+    // Check direct command arguments (e.g. /infou 123456789 or @username)
     if (!targetUserId) {
       const args = ctx.message.text.split(" ").slice(1);
       if (args.length > 0) {
@@ -36,13 +71,22 @@ infoHandler.command("infou", async (ctx) => {
       }
     }
 
-    if (!targetUserId) targetUserId = ctx.from!.id;
+    // Fallback behavior:
+    // If used in a group with no arguments/reply, target the command sender.
+    // If used in PM with no arguments/reply, prompt the user.
+    if (!targetUserId) {
+      if (ctx.chat.type !== "private" && !replyMsg) {
+        targetUserId = ctx.from!.id;
+      } else {
+        return ctx.reply("⚠️ Please provide a User ID, username, or reply to a forwarded user message.", { parse_mode: "HTML" });
+      }
+    }
 
     let targetUser: any;
     try {
       targetUser = await ctx.api.getChat(targetUserId);
     } catch {
-      return ctx.reply("❌ <b>User not found!</b> Make sure the ID or username is valid.", { parse_mode: "HTML" });
+      return ctx.reply("❌ <b>User not found!</b> Make sure the ID is valid and the user has interacted with the bot.", { parse_mode: "HTML" });
     }
 
     if (targetUser.type !== "private") {
