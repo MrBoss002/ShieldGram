@@ -7,19 +7,19 @@ infoHandler.command("info", async (ctx) => {
   try {
     const helpText = 
       `🔍 <b>SHIELDGRAM INFO SUITE MANUAL</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━\n` +
-      `Welcome to the universal lookup suite! Choose a sub-command below:\n\n` +
-      `👤 <b>/infou</b> [User ID / @username / Reply]\n` +
-      `   • <i>Fetches user profile details, ID, and premium status.</i>\n` +
-      `   • <i>In groups:</i> Reply to any user's message.\n` +
-      `   • <i>In PM:</i> Forward a message from a user and reply with <code>/infou</code>.\n\n` +
-      `🏷️ <b>/infog</b> [Group ID / @group / Reply to Forward]\n` +
-      `   • <i>Fetches group title, member count, admin count, and description.</i>\n\n` +
-      `📢 <b>/infoc</b> [Channel ID / @channel / Reply to Forward]\n` +
-      `   • <i>Fetches channel title, subscriber count, and description.</i>\n\n` +
-      `💡 <b>Pro-Tip & Anti-Forwarding Warning:</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━\n\n` +
+      `<i>Welcome to the universal lookup suite! Choose a sub-command below:</i>\n\n` +
+      `👤 <b>/infou [User ID / @username / Reply]</b>\n` +
+      `   • Fetches user profile details, ID, and premium status.\n` +
+      `   • In groups: Reply to any user's message.\n` +
+      `   • In PM: Forward a message from a user and reply with <code>/infou</code>.\n\n` +
+      `🏷️ <b>/infog [Group ID / @group / Reply to Forward]</b>\n` +
+      `   • Fetches group title, member count, admin count, and description.\n\n` +
+      `📢 <b>/infoc [Channel ID / @channel / Reply to Forward]</b>\n` +
+      `   • Fetches channel title, subscriber count, and description.\n\n` +
+      `💡 <b>PRO-TIP:</b>\n` +
       `If a group has <b>Protect Content (anti-forwarding)</b> enabled, forwarding messages out of it might be blocked or trigger restrictions.\n` +
-      `*We recommend using our chat in **Private Messages (PM)** to safely forward messages and look up details without hitting group blocks!*` +
+      `<i>We recommend using our chat in <b>Private Messages (PM)</b> to safely forward messages and look up details without hitting group blocks!</i>\n\n` +
       `━━━━━━━━━━━━━━━━━━━\n` +
       `🛡️ <i>ShieldGram Security Suite</i>`;
 
