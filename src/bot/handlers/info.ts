@@ -9,9 +9,12 @@ infoHandler.command("infou", async (ctx) => {
 
     let targetUserId: number | undefined;
 
-    const replyMsg = ctx.message.reply_to_message;
+    const replyMsg = ctx.message.reply_to_message as any;
     if (replyMsg) {
-      if (replyMsg.forward_from) {
+      // Check modern forward_origin or legacy forward_from
+      if (replyMsg.forward_origin && replyMsg.forward_origin.type === "user") {
+        targetUserId = replyMsg.forward_origin.sender_user?.id;
+      } else if (replyMsg.forward_from) {
         targetUserId = replyMsg.forward_from.id;
       } else if (replyMsg.from) {
         targetUserId = replyMsg.from.id;
@@ -86,9 +89,11 @@ infoHandler.command("infog", async (ctx) => {
 
     let targetChatId: number | string | undefined;
 
-    const replyMsg = ctx.message.reply_to_message;
-    if (replyMsg && replyMsg.forward_from_chat) {
-      if (["group", "supergroup"].includes(replyMsg.forward_from_chat.type)) {
+    const replyMsg = ctx.message.reply_to_message as any;
+    if (replyMsg) {
+      if (replyMsg.forward_origin && ["group", "supergroup"].includes(replyMsg.forward_origin.type)) {
+        targetChatId = replyMsg.forward_origin.chat?.id;
+      } else if (replyMsg.forward_from_chat && ["group", "supergroup"].includes(replyMsg.forward_from_chat.type)) {
         targetChatId = replyMsg.forward_from_chat.id;
       }
     }
@@ -160,9 +165,11 @@ infoHandler.command("infoc", async (ctx) => {
 
     let targetChatId: number | string | undefined;
 
-    const replyMsg = ctx.message.reply_to_message;
-    if (replyMsg && replyMsg.forward_from_chat) {
-      if (replyMsg.forward_from_chat.type === "channel") {
+    const replyMsg = ctx.message.reply_to_message as any;
+    if (replyMsg) {
+      if (replyMsg.forward_origin && replyMsg.forward_origin.type === "channel") {
+        targetChatId = replyMsg.forward_origin.chat?.id;
+      } else if (replyMsg.forward_from_chat && replyMsg.forward_from_chat.type === "channel") {
         targetChatId = replyMsg.forward_from_chat.id;
       }
     }
