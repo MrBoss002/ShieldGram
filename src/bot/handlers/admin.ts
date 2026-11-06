@@ -60,7 +60,7 @@ function parseWelcomeButtons(buttonString?: string): InlineKeyboard | undefined 
   return keyboard;
 }
 
-// 1. STREAMLINED MAIN DASHBOARD KEYBOARD (Reordered & CLEAN CMD added)
+// 1. STREAMLINED MAIN DASHBOARD KEYBOARD (Includes new Anti-Spam, Anti-Bot, Anti-Quote, Anti-Raid toggles)
 export const buildDashboardKeyboard = (config: any) => {
   const f = config.features;
   return new InlineKeyboard()
@@ -98,6 +98,24 @@ export const buildDashboardKeyboard = (config: any) => {
     .text(
       `ANTI-BIO LINK: ${f.antiBioLink?.enabled ? "🟢 ON" : "🔴 OFF"}`,
       `toggle_antiBioLink_${config.groupId}`
+    )
+    .row()
+    .text(
+      `ANTI-SPAM: ${f.antiSpam?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiSpam_${config.groupId}`
+    )
+    .text(
+      `ANTI-BOT: ${f.antiBot?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiBot_${config.groupId}`
+    )
+    .row()
+    .text(
+      `ANTI-QUOTE: ${f.antiQuote?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiQuote_${config.groupId}`
+    )
+    .text(
+      `ANTI-RAID: ${f.antiRaid?.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      `toggle_antiRaid_${config.groupId}`
     )
     .row()
     .text("📢 FSUB CHANNELS", `manage_fsub_${config.groupId}`)
@@ -242,9 +260,9 @@ adminHandler.callbackQuery(/^open_config_(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// Feature Toggles (Handles Dashboard & Sub-Menu Toggles)
+// Feature Toggles (Handles Dashboard & Sub-Menu Toggles including new security plugins)
 adminHandler.callbackQuery(
-  /^toggle_(autoApprove|captcha|cleanAlerts|cleanCmd|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink|wordBlacklist)_(-?\d+)$/,
+  /^toggle_(autoApprove|captcha|cleanAlerts|cleanCmd|forceSub|welcome|rules|antiLink|antiWeblink|antiForward|antiBioLink|antiSpam|antiBot|antiQuote|antiRaid|wordBlacklist)_(-?\d+)$/,
   async (ctx) => {
     const featureKey = ctx.match[1];
     const groupId = parseInt(ctx.match[2]);
@@ -304,7 +322,7 @@ adminHandler.callbackQuery(
       }
     }
 
-    // --- OTHER STANDARD TOGGLES ---
+    // --- OTHER STANDARD & NEW TOGGLES ---
     else {
       switch (featureKey) {
         case "autoApprove": config.features.autoApprove.enabled = !config.features.autoApprove.enabled; break;
@@ -314,6 +332,10 @@ adminHandler.callbackQuery(
         case "rules": config.features.rules.enabled = !config.features.rules.enabled; break;
         case "antiForward": config.features.antiForward.enabled = !config.features.antiForward.enabled; break;
         case "antiBioLink": config.features.antiBioLink.enabled = !config.features.antiBioLink.enabled; break;
+        case "antiSpam": config.features.antiSpam.enabled = !config.features.antiSpam.enabled; break;
+        case "antiBot": config.features.antiBot.enabled = !config.features.antiBot.enabled; break;
+        case "antiQuote": config.features.antiQuote.enabled = !config.features.antiQuote.enabled; break;
+        case "antiRaid": config.features.antiRaid.enabled = !config.features.antiRaid.enabled; break;
         case "wordBlacklist": config.features.wordBlacklist.enabled = !config.features.wordBlacklist.enabled; break;
       }
     }
@@ -321,7 +343,6 @@ adminHandler.callbackQuery(
     await config.save();
 
     try {
-      // Update keyboard depending on where the toggle was pressed
       if (featureKey === "welcome") {
         await ctx.editMessageReplyMarkup({ reply_markup: buildWelcomeMenuKeyboard(config) });
       } else if (featureKey === "rules") {
