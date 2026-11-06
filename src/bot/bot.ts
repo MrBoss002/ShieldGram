@@ -6,6 +6,7 @@ import { forceSubMiddleware, forceSubHandler } from "./middlewares/forceSub";
 import { systemCleanMiddleware } from "./middlewares/systemClean";
 import { antiSpamHandler } from "./handlers/antispam";
 import { antiBotHandler } from "./handlers/antibot";
+import { antiQuoteHandler } from "./handlers/antiquote";
 import { startHandler } from "./handlers/start";
 import { adminHandler } from "./handlers/admin";
 import { welcomeHandler } from "./handlers/welcome"; // Handles welcome msgs, normal joins & join requests
@@ -41,6 +42,7 @@ bot.use(saveHandler);
 bot.use(infoHandler);
 bot.use(antiSpamHandler);
 bot.use(antiBotHandler);
+bot.use(antiQuoteHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
