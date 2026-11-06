@@ -7,6 +7,7 @@ import { systemCleanMiddleware } from "./middlewares/systemClean";
 import { antiSpamHandler } from "./handlers/antispam";
 import { antiBotHandler } from "./handlers/antibot";
 import { antiQuoteHandler } from "./handlers/antiquote";
+import { antiRaidHandler } from "./handlers/antiraid";
 import { startHandler } from "./handlers/start";
 import { adminHandler } from "./handlers/admin";
 import { welcomeHandler } from "./handlers/welcome"; // Handles welcome msgs, normal joins & join requests
@@ -43,6 +44,7 @@ bot.use(infoHandler);
 bot.use(antiSpamHandler);
 bot.use(antiBotHandler);
 bot.use(antiQuoteHandler);
+bot.use(antiRaidHandler);
 bot.use(startHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
