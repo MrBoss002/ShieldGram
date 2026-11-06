@@ -50,6 +50,18 @@ export interface IGroupConfig extends Document {
     antiBioLink: {
       enabled: boolean;
     };
+    antiSpam: {
+      enabled: boolean;
+    };
+    antiBot: {
+      enabled: boolean;
+    };
+    antiQuote: {
+      enabled: boolean;
+    };
+    antiRaid: {
+      enabled: boolean;
+    };
     wordBlacklist: {
       enabled: boolean;
       words: string[];
@@ -126,6 +138,18 @@ const GroupConfigSchema = new Schema<IGroupConfig>(
         enabled: { type: Boolean, default: false },
       },
       antiBioLink: {
+        enabled: { type: Boolean, default: false },
+      },
+      antiSpam: {
+        enabled: { type: Boolean, default: false },
+      },
+      antiBot: {
+        enabled: { type: Boolean, default: false },
+      },
+      antiQuote: {
+        enabled: { type: Boolean, default: false },
+      },
+      antiRaid: {
         enabled: { type: Boolean, default: false },
       },
       wordBlacklist: {
