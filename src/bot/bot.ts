@@ -9,6 +9,7 @@ import { antiBotHandler } from "./handlers/antibot";
 import { antiQuoteHandler } from "./handlers/antiquote";
 import { antiRaidHandler } from "./handlers/antiraid";
 import { startHandler } from "./handlers/start";
+import { helpHandler } from "./handlers/help";
 import { adminHandler } from "./handlers/admin";
 import { welcomeHandler } from "./handlers/welcome"; // Handles welcome msgs, normal joins & join requests
 import { joinReqHandler } from "./handlers/joinReq";
@@ -46,6 +47,7 @@ bot.use(antiBotHandler);
 bot.use(antiQuoteHandler);
 bot.use(antiRaidHandler);
 bot.use(startHandler);
+bot.use(helpHandler);
 bot.use(adminHandler);
 bot.use(setGppHandler);
 bot.use(welcomeHandler); // Handles both direct joins & approved join requests
