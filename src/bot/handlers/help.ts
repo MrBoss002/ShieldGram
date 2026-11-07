@@ -27,7 +27,7 @@ helpHandler.command("help", async (ctx) => {
 
   const text = 
     "🤖 <b>ShieldGram Help & Documentation Center</b>\n\n" +
-    "Welcome to the official ShieldGram command and feature guide! Use the interactive buttons below to explore our detailed feature toggles or look up command usages and descriptions.\n\n" +
+    "<i>Welcome to the official ShieldGram command and feature guide! Use the interactive buttons below to explore our detailed feature toggles or look up command usages and descriptions.</i>\n\n" +
     "🔹 <b>Toggle Guide:</b> Explains all protection switches and management toggles.\n" +
     "🔹 <b>Command Guide:</b> Lists utility and moderation commands with their proper syntax.";
 
@@ -40,10 +40,10 @@ helpHandler.command("help", async (ctx) => {
 // Callback: Main Help Menu
 helpHandler.callbackQuery("help_main", async (ctx) => {
   const text = 
-    "🤖 **ShieldGram Help & Documentation Center**\n\n" +
-    "Welcome to the official ShieldGram command and feature guide! Use the interactive buttons below to explore our detailed feature toggles or look up command usages and descriptions.\n\n" +
-    "🔹 **Toggle Guide:** Explains all protection switches and management toggles.\n" +
-    "🔹 **Command Guide:** Lists utility and moderation commands with their proper syntax.";
+    "🤖 <b>ShieldGram Help & Documentation Center</b>\n\n" +
+    "<i>Welcome to the official ShieldGram command and feature guide! Use the interactive buttons below to explore our detailed feature toggles or look up command usages and descriptions.</i>\n\n" +
+    "🔹 <b>Toggle Guide:</b> Explains all protection switches and management toggles.\n" +
+    "🔹 <b>Command Guide:</b> Lists utility and moderation commands with their proper syntax.";
 
   await ctx.editMessageText(text, {
     parse_mode: "HTML",
