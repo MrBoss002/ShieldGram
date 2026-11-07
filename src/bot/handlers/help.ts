@@ -9,7 +9,7 @@ const mainHelpKeyboard = new InlineKeyboard()
   .text("⚙️ VIEW TOGGLES", "help_toggles")
   .text("📋 VIEW COMMANDS", "help_commands")
   .row()
-  .text("🔙 BACK TO SETUP GUIDE", "help_back_to_guide");
+  .text("🔙 BACK TO SETUP GUIDE", "nav_help");
 
 // 2. Back to Help Menu Keyboard
 const backToHelpKeyboard = new InlineKeyboard()
@@ -26,13 +26,13 @@ helpHandler.command("help", async (ctx) => {
   }
 
   const text = 
-    "🤖 **ShieldGram Help & Documentation Center**\n\n" +
+    "🤖 <b>ShieldGram Help & Documentation Center</b>\n\n" +
     "Welcome to the official ShieldGram command and feature guide! Use the interactive buttons below to explore our detailed feature toggles or look up command usages and descriptions.\n\n" +
-    "🔹 **Toggle Guide:** Explains all protection switches and management toggles.\n" +
-    "🔹 **Command Guide:** Lists utility and moderation commands with their proper syntax.";
+    "🔹 <b>Toggle Guide:</b> Explains all protection switches and management toggles.\n" +
+    "🔹 <b>Command Guide:</b> Lists utility and moderation commands with their proper syntax.";
 
   await ctx.reply(text, {
-    parse_mode: "Markdown",
+    parse_mode: "HTML",
     reply_markup: mainHelpKeyboard,
   });
 });
@@ -46,7 +46,7 @@ helpHandler.callbackQuery("help_main", async (ctx) => {
     "🔹 **Command Guide:** Lists utility and moderation commands with their proper syntax.";
 
   await ctx.editMessageText(text, {
-    parse_mode: "Markdown",
+    parse_mode: "HTML",
     reply_markup: mainHelpKeyboard,
   });
   await ctx.answerCallbackQuery();
@@ -80,7 +80,7 @@ helpHandler.callbackQuery("help_toggles", async (ctx) => {
     "— Restricts quoting or forwarding content from external channels, groups, or bots.\n\n" +
     "<b>🔸 ANTI-RAID :</b>\n" +
     "— Triggers emergency lockdown and slow-mode during sudden member join surges to stop raid attacks.\n\n" +
-    "📁 <b>MANAGEMENT SUB-MENUS:</b>\n" +
+    "📁 <b>MANAGEMENT SUB-MENUS:</b>\n\n" +
     "• <b>FSUB CHANNELS</b> — Manage forced subscription channel links.\n" +
     "• <b>WELCOME MSG</b> — Customize greeting texts for new members.\n" +
     "• <b>RULES TEXT</b> — Set and display group community rules.\n" +
@@ -104,7 +104,7 @@ helpHandler.callbackQuery("help_commands", async (ctx) => {
     "— Opens the group configuration dashboard to toggle features and manage settings.\n\n" +
     "<b>🔹 /help :</b>\n" +
     "— Displays this interactive guide menu with feature explanations and command usages.\n\n" +
-    "<b>🔸 /infou, /infog, /infoc :</b>\n" +
+    "<b>🔸 /info :</b>\n" +
     "— Sub-commands for info: /infou (User info), /infog (Group info), /infoc (Channel info).\n\n" +
     "<b>🔹 /setgpp :</b>\n" +
     "— Configures or updates the group profile picture settings.\n\n" +
