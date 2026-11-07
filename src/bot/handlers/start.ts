@@ -74,8 +74,9 @@ startHandler.command("start", async (ctx) => {
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
-    `Good to see you, <b>${firstName}</b>! ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.\n\n` +
-    `Add me to your group as an Admin right now to activate full protection! ♥️`;
+    `<b>Good to see you, ${firstName}</b>\n\n!` +
+    `<i>ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.</i>\n\n` +
+    `<b>Add me to your group as an Admin right now to activate full protection! ♥️</b>`;
 
   const keyboard = new InlineKeyboard()
     .url("➕ ADD ME TO GROUP", `https://t.me/${ctx.me.username}?startgroup=true`)
@@ -173,8 +174,9 @@ startHandler.callbackQuery("nav_home", async (ctx) => {
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
-    `Good to see you, <b>${firstName}</b>! ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.\n\n` +
-    `Add me to your group as an Admin right now to activate full protection! ♥️`;
+    `<b>Good to see you, ${firstName}</b>!\n\n` +
+    `<i>ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.</i>\n\n` +
+    `<b>Add me to your group as an Admin right now to activate full protection! ♥️</b>`;
 
   const keyboard = new InlineKeyboard()
     .url("➕ ADD ME TO GROUP", `https://t.me/${ctx.me.username}?startgroup=true`)
