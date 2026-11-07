@@ -37,7 +37,7 @@ const scheduleAutoDelete = (ctx: Context, chatId: number, messageId: number) => 
 };
 
 // Helper to issue automated warnings from security middleware
-async function issueAutoWarn(
+export async function issueAutoWarn(
   ctx: Context,
   groupId: number,
   user: { id: number; first_name: string },
