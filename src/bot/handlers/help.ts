@@ -79,11 +79,11 @@ helpHandler.callbackQuery("help_toggles", async (ctx) => {
     "<b>🔹 ANTI QUOTE :</b>\n" +
     "— Restricts quoting or forwarding content from external channels, groups, or bots.\n\n" +
     "<b>🔸 ANTI-RAID :</b>\n" +
-    "— Triggers emergency lockdown and slow-mode during sudden member join surges to stop raid attacks.\n\n" +
+    "— Triggers emergency lockdown and slow-mode during sudden member join surges to stop raid attacks.\n\n\n" +
     "📁 <b>MANAGEMENT SUB-MENUS:</b>\n\n" +
-    "• <b>FSUB CHANNELS</b> — Manage forced subscription channel links.\n" +
-    "• <b>WELCOME MSG</b> — Customize greeting texts for new members.\n" +
-    "• <b>RULES TEXT</b> — Set and display group community rules.\n" +
+    "• <b>FSUB CHANNELS</b> — Manage forced subscription channel links.\n\n" +
+    "• <b>WELCOME MSG</b> — Customize greeting texts for new members.\n\n" +
+    "• <b>RULES TEXT</b> — Set and display group community rules.\n\n" +
     "• <b>WORD BLACKLIST</b> — Manage banned words and filtered terms.";
 
   await ctx.editMessageText(text, {
