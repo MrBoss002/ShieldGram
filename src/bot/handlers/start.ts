@@ -74,15 +74,8 @@ startHandler.command("start", async (ctx) => {
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
-    `👋 <b>Hello ${firstName}!</b>\n\n` +
-    `Welcome to <b>ShieldGram</b> — your complete security and group management solution.\n\n` +
-    `<b>Key Features:</b>\n` +
-    `• <b>Force-Sub Verification</b> — Require channel subscription before speaking\n` +
-    `• <b>Instant Auto-Approve</b> — Handle join requests instantly\n` +
-    `• <b>Anti-Link & Anti-Weblink</b> — Keep group chat clean from spam\n` +
-    `• <b>Custom Welcome Cards</b> — Greet members with dynamic tags & photo buttons\n` +
-    `• <b>Entry Captcha</b> — Shield your community from automated userbots\n\n` +
-    `Add me to your group as an Admin to get started!`;
+    `Good to see you, <b>${firstName}</b>! ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.\n\n` +
+    `Add me to your group as an Admin right now to activate full protection! ♥️`;
 
   const keyboard = new InlineKeyboard()
     .url("➕ ADD ME TO GROUP", `https://t.me/${ctx.me.username}?startgroup=true`)
@@ -104,13 +97,9 @@ startHandler.command("stats", async (ctx) => {
   if (ctx.chat.type !== "private") return;
 
   try {
-    // 1. Count Total Unique Users
     const totalUsers = await User.countDocuments();
-
-    // 2. Count Total Groups Configured
     const totalGroups = await GroupConfig.countDocuments();
 
-    // 3. Count Total Unique F-Sub Channels across all groups
     const configs = await GroupConfig.find({}, { "features.forceSub.channels": 1 });
     const fSubSet = new Set<string>();
     configs.forEach((cfg: any) => {
@@ -167,7 +156,9 @@ startHandler.callbackQuery("nav_help", async (ctx) => {
     `3️⃣ <b>Link Channels</b>: In PM, go to <i>Manage Force-Sub</i> ➔ <i>Add Channel</i> and forward a post from your channel.\n\n` +
     `4️⃣ <b>Customize Toggles</b>: Enable or disable Captcha, Anti-Link, Rules, and Welcome Messages with a single click.`;
 
-  const keyboard = new InlineKeyboard().text("🔙 BACK", "nav_home");
+  const keyboard = new InlineKeyboard()
+    .text("🔙 BACK", "nav_home")
+    .text("HELP", "help_main");
 
   try {
     await ctx.editMessageText(helpText, {
@@ -182,9 +173,8 @@ startHandler.callbackQuery("nav_home", async (ctx) => {
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
-    `👋 <b>Hello ${firstName}!</b>\n\n` +
-    `Welcome to <b>ShieldGram</b> — your complete security and group management solution.\n\n` +
-    `Add me to your group as an Admin to get started!`;
+    `Good to see you, <b>${firstName}</b>! ShieldGram is your ultimate group management bot, engineered to be the #1 security tool on Telegram. Tap <b>📓 GUIDE</b> or send /help below to see how I work.\n\n` +
+    `Add me to your group as an Admin right now to activate full protection! ♥️`;
 
   const keyboard = new InlineKeyboard()
     .url("➕ ADD ME TO GROUP", `https://t.me/${ctx.me.username}?startgroup=true`)
