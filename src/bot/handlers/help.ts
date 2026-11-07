@@ -21,7 +21,7 @@ const backToHelpKeyboard = new InlineKeyboard()
 helpHandler.command("help", async (ctx) => {
   if (ctx.chat.type !== "private") {
     return ctx.reply("ℹ️ Please use the /help command in private chat with me.", {
-      reply_parameters: { message_id: ctx.message.message_id },
+      reply_parameters: ctx.message ? { message_id: ctx.message.message_id } : undefined,
     });
   }
 
