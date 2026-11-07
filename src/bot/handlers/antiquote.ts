@@ -13,9 +13,9 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     const userId = ctx.from.id;
     const chatId = ctx.chat.id;
 
-    // 1. Check feature toggle status
+    // 1. Check feature toggle status (Default to enabled if undefined)
     const config = await GroupConfig.findOne({ groupId: chatId });
-    if (!config || !config.features?.antiQuote?.enabled) {
+    if (config && config.features?.antiQuote && !config.features.antiQuote.enabled) {
       return await next();
     }
 
@@ -31,7 +31,7 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     let quoteSourceType = "external content";
     const msg = ctx.message as any;
 
-    // 3. Check modern forward_origin
+    // 3. Check modern Telegram forward_origin
     if (msg.forward_origin) {
       const origin = msg.forward_origin;
       if (origin.type === "channel") {
@@ -43,10 +43,19 @@ antiQuoteHandler.on("message", async (ctx, next) => {
       } else if (origin.type === "user" && origin.sender_user && origin.sender_user.is_bot) {
         isExternalQuote = true;
         quoteSourceType = "a bot";
+      } else if (origin.type === "hidden_user") {
+        isExternalQuote = true;
+        quoteSourceType = "a hidden user format";
       }
     }
 
-    // 4. Check legacy forward fields
+    // 4. Check Telegram external_reply (New Telegram Quote feature)
+    if (!isExternalQuote && msg.external_reply) {
+      isExternalQuote = true;
+      quoteSourceType = "an external quote/reply";
+    }
+
+    // 5. Check legacy forward fields
     if (!isExternalQuote) {
       if (msg.forward_from_chat) {
         if (msg.forward_from_chat.type === "channel") {
@@ -59,27 +68,25 @@ antiQuoteHandler.on("message", async (ctx, next) => {
       } else if (msg.forward_from && msg.forward_from.is_bot) {
         isExternalQuote = true;
         quoteSourceType = "a bot";
-      } else if (msg.forward_date && !msg.forward_from) {
+      } else if (msg.forward_date) {
         isExternalQuote = true;
-        quoteSourceType = "a channel";
+        quoteSourceType = "a forwarded post";
       }
     }
 
-    // 5. Check reply / quoted message target
+    // 6. Check reply / quoted message target
     if (!isExternalQuote && msg.reply_to_message) {
       const reply = msg.reply_to_message;
-      if (reply.forward_from_chat) {
-        if (reply.forward_from_chat.type === "channel" || reply.forward_from_chat.id !== chatId) {
-          isExternalQuote = true;
-          quoteSourceType = "a channel/group post";
-        }
+      if (reply.forward_from_chat || reply.forward_origin || reply.external_reply) {
+        isExternalQuote = true;
+        quoteSourceType = "a channel/group post";
       } else if (reply.from && reply.from.is_bot && reply.from.id !== ctx.me.id) {
         isExternalQuote = true;
         quoteSourceType = "a bot message";
       }
     }
 
-    // 6. Issue warning via central system if external quote detected
+    // 7. Trigger Warning if external quote/forward detected
     if (isExternalQuote) {
       try {
         await ctx.deleteMessage();
@@ -91,7 +98,6 @@ antiQuoteHandler.on("message", async (ctx, next) => {
         );
         return;
       } catch (err) {
-        // Message might already be deleted by another middleware
         return;
       }
     }
