@@ -32,8 +32,8 @@ antiRaidHandler.on("chat_member", async (ctx, next) => {
       joinTracker.set(chatId, []);
 
       try {
-        // Safe raw API call for slow-mode
-        await ctx.api.raw.setChatSlowModeDelay({
+        // Correct snake_case method name for grammY raw API
+        await (ctx.api.raw as any).set_chat_slow_mode_delay({
           chat_id: chatId,
           slow_mode_delay: EMERGENCY_SLOWMODE_SEC,
         });
@@ -77,7 +77,7 @@ antiRaidHandler.callbackQuery(/^antiraid_disable_(-?\d+)$/, async (ctx) => {
       });
     }
 
-    await ctx.api.raw.setChatSlowModeDelay({
+    await (ctx.api.raw as any).set_chat_slow_mode_delay({
       chat_id: chatId,
       slow_mode_delay: 0,
     });
