@@ -2,10 +2,7 @@ import { Composer } from "grammy";
 
 export const antiQuoteHandler = new Composer();
 
-// In-memory warning tracker (Replace with DB query if using persistence)
-// Map<userId_chatId, warningCount>
 const userWarns = new Map<string, number>();
-
 const MAX_WARNS = 3;
 
 function addWarning(userId: number, chatId: number): number {
@@ -25,7 +22,7 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     const userId = ctx.from.id;
     const chatId = ctx.chat.id;
 
-    // 1. Admin exemption check
+    // Admin exemption check
     try {
       const member = await ctx.api.getChatMember(chatId, userId);
       if (["creator", "administrator"].includes(member.status)) {
@@ -36,47 +33,41 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     let isExternalQuote = false;
     let quoteSourceType = "";
 
-    // 2. Check Telegram Forward Origin (Grammy / Bot API 7.0+)
-    const origin = ctx.message.forward_origin;
+    const origin = ctx.message.forward_origin as any;
     if (origin) {
       if (origin.type === "channel") {
         isExternalQuote = true;
         quoteSourceType = "Channel";
       } else if (origin.type === "chat") {
-        // Quoted/forwarded from an external group
-        if (origin.chat.id !== chatId) {
+        if (origin.chat && origin.chat.id !== chatId) {
           isExternalQuote = true;
           quoteSourceType = "External Group";
         }
-      } else if (origin.type === "user" && origin.sender_user.is_bot) {
+      } else if (origin.type === "user" && origin.sender_user && origin.sender_user.is_bot) {
         isExternalQuote = true;
         quoteSourceType = "Bot";
       }
     }
 
-    // 3. Check legacy forward fields or reply target origin
     if (!isExternalQuote) {
-      const replyMsg = ctx.message.reply_to_message;
+      const replyMsg = ctx.message.reply_to_message as any;
       if (replyMsg) {
         if (replyMsg.forward_from_chat) {
-          if (replyMsg.forward_from_chat.type === "channel") {
+          const fwdChat = replyMsg.forward_from_chat;
+          if (fwdChat.type === "channel") {
             isExternalQuote = true;
             quoteSourceType = "Channel";
-          } else if (replyMsg.forward_from_chat.type === "supergroup" || replyMsg.forward_from_chat.type === "group") {
-            if (replyMsg.forward_from_chat.id !== chatId) {
-              isExternalQuote = true;
-              quoteSourceType = "External Group";
-            }
+          } else if ((fwdChat.type === "supergroup" || fwdChat.type === "group") && fwdChat.id !== chatId) {
+            isExternalQuote = true;
+            quoteSourceType = "External Group";
           }
         } else if (replyMsg.from && replyMsg.from.is_bot && replyMsg.from.id !== ctx.me.id) {
-          // Quote from an external bot
           isExternalQuote = true;
           quoteSourceType = "Bot";
         }
       }
     }
 
-    // 4. Take action if an external quote block (Channel / Group / Bot) was detected
     if (isExternalQuote) {
       try {
         await ctx.deleteMessage();
