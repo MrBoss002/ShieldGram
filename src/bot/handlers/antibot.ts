@@ -61,7 +61,7 @@ antiBotHandler.on("chat_member", async (ctx, next) => {
         try {
           await ctx.api.deleteMessage(chatId, alertMsg.message_id);
         } catch {}
-      }, 7000);
+      }, 9000);
     } catch (err) {
       console.error(`[Anti-Bot Ban Error for bot ${addedMember.id}]:`, err);
     }
