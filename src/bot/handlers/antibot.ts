@@ -2,31 +2,42 @@ import { Composer } from "grammy";
 
 export const antiBotHandler = new Composer();
 
-antiBotHandler.on("message:new_chat_members", async (ctx, next) => {
+antiBotHandler.on("chat_member", async (ctx, next) => {
   try {
-    if (!ctx.chat || ctx.chat.type === "private") {
-      return await next();
-    }
-
+    const update = ctx.chatMember;
     const chatId = ctx.chat.id;
-    const addedBy = ctx.from;
-    const newMembers = ctx.message.new_chat_members;
 
-    // Filter out all bots added in this event
-    const addedBots = newMembers.filter((member) => member.is_bot);
+    // Check if a new member joined / was added
+    const isNewMember =
+      ["left", "kicked", "restricted"].includes(update.old_chat_member.status) &&
+      ["member", "administrator"].includes(update.new_chat_member.status);
 
-    // If no bots were added, pass through
-    if (addedBots.length === 0) {
+    if (!isNewMember) {
       return await next();
     }
 
-    // Check if the user who added the bot is an admin
+    const addedMember = update.new_chat_member.user;
+
+    // Check if the newly joined member is a bot
+    if (!addedMember.is_bot) {
+      return await next();
+    }
+
+    // Find out who invited/added them (ctx.from represents the user who performed the action)
+    const inviter = ctx.from;
+    
+    // If we can't determine who invited them, or if it's the bot itself, pass through
+    if (!inviter || inviter.id === addedMember.id) {
+      return await next();
+    }
+
+    // Check if the person who added the bot is an admin or creator
     let isAdmin = false;
     try {
-      const inviterMember = await ctx.api.getChatMember(chatId, addedBy.id);
+      const inviterMember = await ctx.api.getChatMember(chatId, inviter.id);
       isAdmin = ["creator", "administrator"].includes(inviterMember.status);
     } catch (err) {
-      console.error("[Anti-Bot Admin Check Error]:", err);
+      console.error("[Anti-Bot Admin Verification Error]:", err);
     }
 
     // If an admin added the bot, allow it
@@ -34,30 +45,28 @@ antiBotHandler.on("message:new_chat_members", async (ctx, next) => {
       return await next();
     }
 
-    // If a non-admin added the bot, ban each rogue bot
-    for (const botUser of addedBots) {
-      try {
-        // Ban the rogue bot from the group
-        await ctx.banChatMember(botUser.id);
+    // If a regular non-admin added the rogue bot, ban it immediately!
+    try {
+      await ctx.api.banChatMember(chatId, addedMember.id);
 
-        const alertMsg = await ctx.reply(
-          `🤖 <b>Anti-Bot Action Triggered</b>\n` +
-          `Rogue bot <b>@${botUser.username || botUser.first_name}</b> added by ${addedBy.first_name} was automatically removed.\n\n` +
-          `<b>Action:</b> Bot Banned 🛡️`,
-          { parse_mode: "HTML" }
-        );
+      const alertMsg = await ctx.reply(
+        `🤖 <b>Anti-Bot Action Triggered</b>\n` +
+        `Rogue bot <b>@${addedMember.username || addedMember.first_name}</b> added by ${inviter.first_name} was automatically removed.\n\n` +
+        `<b>Action:</b> Bot Banned 🛡️`,
+        { parse_mode: "HTML" }
+      );
 
-        // Auto-delete alert after 7 seconds to keep chat tidy
-        setTimeout(async () => {
-          try {
-            await ctx.api.deleteMessage(chatId, alertMsg.message_id);
-          } catch {}
-        }, 7000);
-      } catch (err) {
-        console.error(`[Anti-Bot Ban Error for ${botUser.id}]:`, err);
-      }
+      // Auto-delete alert after 7 seconds to keep chat tidy
+      setTimeout(async () => {
+        try {
+          await ctx.api.deleteMessage(chatId, alertMsg.message_id);
+        } catch {}
+      }, 7000);
+    } catch (err) {
+      console.error(`[Anti-Bot Ban Error for bot ${addedMember.id}]:`, err);
     }
 
+    await next();
   } catch (error) {
     console.error("[AntiBot Middleware Error]:", error);
     await next();
