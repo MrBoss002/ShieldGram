@@ -1,31 +1,8 @@
 import { Composer } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
+import { issueAutoWarn } from "./moderation";
 
 export const antiQuoteHandler = new Composer();
-
-const MAX_WARNS = 3;
-
-async function incrementUserWarning(userId: number, chatId: number): Promise<number> {
-  try {
-    let config = await GroupConfig.findOne({ groupId: chatId });
-    if (!config) {
-      config = await GroupConfig.create({ groupId: chatId, ownerId: userId });
-    }
-    if (!(config as any).features.warnings) {
-      (config as any).features.warnings = new Map();
-    }
-    const warningsMap = (config as any).features.warnings;
-    const currentWarns = warningsMap.get(userId.toString()) || 0;
-    const newWarns = currentWarns + 1;
-    warningsMap.set(userId.toString(), newWarns);
-    config.markModified("features");
-    await config.save();
-    return newWarns;
-  } catch (err) {
-    console.error("[Database Warning Error]:", err);
-    return 1;
-  }
-}
 
 antiQuoteHandler.on("message", async (ctx, next) => {
   try {
@@ -36,7 +13,13 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     const userId = ctx.from.id;
     const chatId = ctx.chat.id;
 
-    // Admin exemption check
+    // 1. Check feature toggle status
+    const config = await GroupConfig.findOne({ groupId: chatId });
+    if (!config || !config.features?.antiQuote?.enabled) {
+      return await next();
+    }
+
+    // 2. Admin exemption check
     try {
       const member = await ctx.api.getChatMember(chatId, userId);
       if (["creator", "administrator"].includes(member.status)) {
@@ -45,76 +28,71 @@ antiQuoteHandler.on("message", async (ctx, next) => {
     } catch {}
 
     let isExternalQuote = false;
-    let quoteSourceType = "Channel/Bot";
+    let quoteSourceType = "external content";
     const msg = ctx.message as any;
 
-    // 1. Check modern forward_origin
+    // 3. Check modern forward_origin
     if (msg.forward_origin) {
       const origin = msg.forward_origin;
       if (origin.type === "channel") {
         isExternalQuote = true;
-        quoteSourceType = "Channel";
+        quoteSourceType = "a channel";
       } else if (origin.type === "chat" && origin.chat && origin.chat.id !== chatId) {
         isExternalQuote = true;
-        quoteSourceType = "External Group";
+        quoteSourceType = "an external group";
       } else if (origin.type === "user" && origin.sender_user && origin.sender_user.is_bot) {
         isExternalQuote = true;
-        quoteSourceType = "Bot";
+        quoteSourceType = "a bot";
       }
     }
 
-    // 2. Check legacy forward fields
+    // 4. Check legacy forward fields
     if (!isExternalQuote) {
       if (msg.forward_from_chat) {
         if (msg.forward_from_chat.type === "channel") {
           isExternalQuote = true;
-          quoteSourceType = "Channel";
+          quoteSourceType = "a channel";
         } else if (msg.forward_from_chat.id !== chatId) {
           isExternalQuote = true;
-          quoteSourceType = "External Group";
+          quoteSourceType = "an external group";
         }
       } else if (msg.forward_from && msg.forward_from.is_bot) {
         isExternalQuote = true;
-        quoteSourceType = "Bot";
+        quoteSourceType = "a bot";
+      } else if (msg.forward_date && !msg.forward_from) {
+        isExternalQuote = true;
+        quoteSourceType = "a channel";
       }
     }
 
-    // 3. Check reply / quoted message target
+    // 5. Check reply / quoted message target
     if (!isExternalQuote && msg.reply_to_message) {
       const reply = msg.reply_to_message;
       if (reply.forward_from_chat) {
         if (reply.forward_from_chat.type === "channel" || reply.forward_from_chat.id !== chatId) {
           isExternalQuote = true;
-          quoteSourceType = "Channel/Group";
+          quoteSourceType = "a channel/group post";
         }
       } else if (reply.from && reply.from.is_bot && reply.from.id !== ctx.me.id) {
         isExternalQuote = true;
-        quoteSourceType = "Bot";
+        quoteSourceType = "a bot message";
       }
     }
 
-    // Take action if external quote/forward detected
+    // 6. Issue warning via central system if external quote detected
     if (isExternalQuote) {
       try {
         await ctx.deleteMessage();
-        const warnCount = await incrementUserWarning(userId, chatId);
-
-        const warning = await ctx.reply(
-          `⚠️ <b>Anti-Quote Warning</b>\n` +
-          `Hey ${ctx.from.first_name}, quoting or forwarding content from external ${quoteSourceType}s is restricted here to prevent spam ads.\n\n` +
-          `<b>Action:</b> Warn (${warnCount}/${MAX_WARNS}) ❕`,
-          { parse_mode: "HTML" }
+        await issueAutoWarn(
+          ctx,
+          chatId,
+          ctx.from,
+          `quoting or forwarding content from ${quoteSourceType} is restricted`
         );
-
-        setTimeout(async () => {
-          try {
-            await ctx.api.deleteMessage(chatId, warning.message_id);
-          } catch {}
-        }, 5000);
-
         return;
       } catch (err) {
-        console.error("[Anti-Quote Action Error]:", err);
+        // Message might already be deleted by another middleware
+        return;
       }
     }
 
