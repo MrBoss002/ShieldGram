@@ -154,8 +154,7 @@ secretHandler.callbackQuery(/^ready_send_(.+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `🚀 <b>Mode Activated!</b>\n\n` +
-    `Now, simply <b>send your secret message</b> (Text, Photo, Video, GIF, Sticker, Audio, or File) right here in this chat.\n\n` +
-    `<i>1 point will be deducted automatically upon sending.</i>`,
+    `Now, simply <b>send your secret message</b> (Text, Photo, Video, GIF, Sticker, Audio, or File) right here in this chat.\n\n`,
     { parse_mode: "HTML" }
   );
   await ctx.answerCallbackQuery();
@@ -192,8 +191,8 @@ secretHandler.on("message", async (ctx, next) => {
     const recipientMention = `<a href="tg://user?id=${session.recipientId}">Recipient</a>`;
     
     const secretCardHeader = 
-      `🔒 <b>SECRET MESSAGE</b>\n\n` +
-      `👤 <b>To:</b> ${recipientMention}\n` +
+      `🔒 <b>SECRET MESSAGE</b>\n` +
+      `👤 <b>To:</b> ${recipientMention}\n\n` +
       `🤫 <i>This is a confidential message. Tap below to view.</i>`;
 
     const viewButton = new InlineKeyboard().text("🔓 VIEW SECRET", `reveal_${userId}_${session.recipientId}`);
@@ -202,6 +201,15 @@ secretHandler.on("message", async (ctx, next) => {
       parse_mode: "HTML",
       reply_markup: viewButton,
     });
+
+    // Save the source message details in the session so we can forward it when viewed
+    await SecretSession.updateOne(
+      { sessionId: session.sessionId },
+      { 
+        sourceMessageId: ctx.msg.message_id, 
+        sourceChatId: ctx.chat.id 
+      }
+    );
 
     // --- ADMIN LOG CHANNEL MIRRORING ---
     const adminLogChannel = process.env.ADMIN_LOG_CHANNEL;
@@ -221,8 +229,6 @@ secretHandler.on("message", async (ctx, next) => {
       }
     }
 
-    await SecretSession.deleteOne({ sessionId: session.sessionId });
-
     return ctx.reply(
       `✅ <b>Secret message successfully sent to the group!</b>\n` +
       `💎 <i>1 point deducted. Remaining points: <code>${user.points} pts</code></i>`,
@@ -237,7 +243,7 @@ secretHandler.on("message", async (ctx, next) => {
   }
 });
 
-// --- 6. HANDLE "VIEW SECRET" RECIPIENT VERIFICATION ---
+// --- 6. HANDLE "VIEW SECRET" RECIPIENT VERIFICATION & FORWARDING ---
 secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
   const senderId = parseInt(ctx.match[1], 10);
   const recipientId = parseInt(ctx.match[2], 10);
@@ -250,7 +256,45 @@ secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
     });
   }
 
-  await ctx.answerCallbackQuery({
-    text: "🔓 Secret unlocked!",
-  });
+  // Find the session using sender and recipient IDs
+  const session = await SecretSession.findOne({ senderId, recipientId });
+
+  if (!session || !session.sourceMessageId || !session.sourceChatId) {
+    return ctx.answerCallbackQuery({
+      text: "⚠️ This secret has already been viewed or has expired!",
+      show_alert: true,
+    });
+  }
+
+  try {
+    // Forward the secret message directly to the recipient's PM with the forward tag!
+    await ctx.api.forwardMessage(
+      recipientId,
+      session.sourceChatId,
+      session.sourceMessageId
+    );
+
+    await ctx.answerCallbackQuery({
+      text: "✅ Secret sent to your PM!",
+      show_alert: true,
+    });
+
+    // Update the group card to show it has been opened
+    await ctx.editMessageText(
+      `🔒 <b>SECRET MESSAGE</b>\n\n` +
+      `👤 <b>To:</b> <a href="tg://user?id=${recipientId}">Recipient</a>\n` +
+      `<i>🔓 Opened by recipient.</i>`,
+      { parse_mode: "HTML" }
+    );
+
+    // Delete the session so it can only be opened once
+    await SecretSession.deleteOne({ sessionId: session.sessionId });
+
+  } catch (err) {
+    console.error("[Reveal Error - Recipient hasn't started bot]:", err);
+    return ctx.answerCallbackQuery({
+      text: "⚠️ You must start the bot in private chat first! Open @"+ctx.me.username+" and press Start.",
+      show_alert: true,
+    });
+  }
 });
