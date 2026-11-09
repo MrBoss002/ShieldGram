@@ -55,6 +55,14 @@ secretHandler.command("secret", async (ctx) => {
   );
 });
 
+setTimeout(async () => {
+    try {
+      await ctx.api.deleteMessage(groupId, sentMsg.message_id);
+    } catch (err) {
+      // 90000 = 1.5minutes
+    }
+  }, 90000);
+
 // --- 2. PM START PAYLOAD ROUTE (/start secret_SESSIONID) ---
 secretHandler.use(async (ctx, next) => {
   if (ctx.chat?.type !== "private") return next();
@@ -281,9 +289,7 @@ secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
 
     // Update the group card to show it has been opened
     await ctx.editMessageText(
-      `🔒 <b>SECRET MESSAGE</b>\n\n` +
-      `👤 <b>To:</b> <a href="tg://user?id=${recipientId}">Recipient</a>\n` +
-      `<i>🔓 Opened by recipient.</i>`,
+      `<i>🔓 <b>SECRET MESSAGE</b> : Opened by recipient.</i>`,
       { parse_mode: "HTML" }
     );
 
