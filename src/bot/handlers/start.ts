@@ -165,7 +165,9 @@ startHandler.callbackQuery("nav_about", async (ctx) => {
     `• <b>Database</b>: MongoDB\n` +
     `• <b>Architecture</b>: Pure Telegram Bot API (No userbots required)`;
 
-  const keyboard = new InlineKeyboard().text("🔙 BACK", "nav_home");
+  const keyboard = new InlineKeyboard()
+    .text("🔙 BACK", "nav_home")
+    .text("📖 HELP", "help_main");
 
   try {
     await ctx.editMessageText(aboutText, {
@@ -187,7 +189,7 @@ startHandler.callbackQuery("nav_help", async (ctx) => {
 
   const keyboard = new InlineKeyboard()
     .text("🔙 BACK", "nav_home")
-    .text("HELP", "help_main");
+    .text("📖 HELP", "help_main");
 
   try {
     await ctx.editMessageText(helpText, {
