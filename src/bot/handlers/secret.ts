@@ -55,13 +55,18 @@ secretHandler.command("secret", async (ctx) => {
   );
 });
 
-setTimeout(async () => {
+// Capture the api, chat id, and message id safely for the timer
+  const botApi = ctx.api;
+  const chatToCleanId = groupId;
+  const messageToDeleteId = sentMsg.message_id;
+
+  setTimeout(async () => {
     try {
-      await ctx.api.deleteMessage(groupId, sentMsg.message_id);
+      await botApi.deleteMessage(chatToCleanId, messageToDeleteId);
     } catch (err) {
-      // 90000 = 1.5minutes
+      // Ignore errors if already deleted
     }
-  }, 90000);
+  }, 90000); // 90 seconds
 
 // --- 2. PM START PAYLOAD ROUTE (/start secret_SESSIONID) ---
 secretHandler.use(async (ctx, next) => {
