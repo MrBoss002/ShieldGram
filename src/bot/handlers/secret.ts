@@ -18,6 +18,8 @@ secretHandler.command("secret", async (ctx) => {
   }
 
   const sender = ctx.from;
+  if (!sender) return;
+
   const recipient = repliedMessage.from;
   const groupId = ctx.chat.id;
 
@@ -68,10 +70,13 @@ secretHandler.use(async (ctx, next) => {
     return ctx.reply("⚠️ <b>This secret session has expired or is invalid.</b>\nPlease start a new secret message from the group chat using <code>/secret</code>.", { parse_mode: "HTML" });
   }
 
-  let user = await User.findOne({ userId: ctx.from?.id });
+  const currentUserId = ctx.from?.id;
+  if (!currentUserId) return next();
+
+  let user = await User.findOne({ userId: currentUserId });
   if (!user) {
     user = await User.create({
-      userId: ctx.from?.id,
+      userId: currentUserId,
       username: ctx.from?.username,
       firstName: ctx.from?.first_name || "User",
       points: 5,
@@ -106,11 +111,12 @@ secretHandler.use(async (ctx, next) => {
 // --- 3. PROFILE BUTTON CALLBACK ---
 secretHandler.callbackQuery(/^profile_(.+)$/, async (ctx) => {
   const sessionId = ctx.match[1];
-  const userId = ctx.from.id;
+  const userId = ctx.from?.id;
+  if (!userId) return;
 
   const user = await User.findOne({ userId });
   const points = user ? user.points : 5;
-  const referralLink = `https://t.me/${ctx.me.username}?start=ref_${userId}`;
+  const referralLink = `https://t.me/${ctx.me?.username}?start=ref_${userId}`;
 
   const profileText =
     `👤 <b>Your Secret Profile & Stats</b>\n\n` +
@@ -143,7 +149,9 @@ secretHandler.callbackQuery(/^ready_send_(.+)$/, async (ctx) => {
     return ctx.editMessageText("⚠️ <b>This session has expired. Please start over from the group.</b>", { parse_mode: "HTML" });
   }
 
-  activeSecretSessions.set(ctx.from!.id, session);
+  if (ctx.from?.id) {
+    activeSecretSessions.set(ctx.from.id, session);
+  }
 
   await ctx.editMessageText(
     `🚀 <b>Mode Activated!</b>\n\n` +
@@ -167,7 +175,7 @@ secretHandler.on("message", async (ctx, next) => {
   const user = await User.findOne({ userId });
   if (!user || user.points < 1) {
     activeSecretSessions.delete(userId);
-    const referralLink = `https://t.me/${ctx.me.username}?start=ref_${userId}`;
+    const referralLink = `https://t.me/${ctx.me?.username}?start=ref_${userId}`;
     return ctx.reply(
       `❌ <b>Insufficient Points!</b>\n\n` +
       `You need at least <b>1 point</b> to send a secret message. You currently have <code>0 pts</code>.\n\n` +
@@ -233,9 +241,9 @@ secretHandler.on("message", async (ctx, next) => {
 secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
   const senderId = parseInt(ctx.match[1], 10);
   const recipientId = parseInt(ctx.match[2], 10);
-  const clickerId = ctx.from.id;
+  const clickerId = ctx.from?.id;
 
-  if (clickerId !== recipientId && clickerId !== senderId) {
+  if (!clickerId || (clickerId !== recipientId && clickerId !== senderId)) {
     return ctx.answerCallbackQuery({
       text: "⚠️ This secret message is not for you!",
       show_alert: true,
