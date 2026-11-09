@@ -1,7 +1,6 @@
 import { Composer, InlineKeyboard, Context } from "grammy";
 import { User } from "../../models/User";
 import { SecretSession } from "../../models/SecretSession";
-import { env } from "../../config/env";
 import crypto from "crypto";
 
 export const secretHandler = new Composer();
@@ -205,7 +204,8 @@ secretHandler.on("message", async (ctx, next) => {
     });
 
     // --- ADMIN LOG CHANNEL MIRRORING ---
-    if (env.ADMIN_LOG_CHANNEL) {
+    const adminLogChannel = process.env.ADMIN_LOG_CHANNEL;
+    if (adminLogChannel) {
       try {
         const logHeader = 
           `📝 <b>Secret Message Audit Log</b>\n\n` +
@@ -214,8 +214,8 @@ secretHandler.on("message", async (ctx, next) => {
           `• <b>Group ID:</b> <code>${session.groupId}</code>\n` +
           `• <b>Remaining Points:</b> <code>${user.points} pts</code>`;
 
-        await ctx.api.sendMessage(env.ADMIN_LOG_CHANNEL, logHeader, { parse_mode: "HTML" });
-        await ctx.api.copyMessage(env.ADMIN_LOG_CHANNEL, ctx.chat.id, ctx.msg.message_id);
+        await ctx.api.sendMessage(adminLogChannel, logHeader, { parse_mode: "HTML" });
+        await ctx.api.copyMessage(adminLogChannel, ctx.chat.id, ctx.msg.message_id);
       } catch (logErr) {
         console.error("[Admin Log Error]:", logErr);
       }
