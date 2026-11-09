@@ -38,12 +38,12 @@ secretHandler.command("secret", async (ctx) => {
     groupId,
   });
 
-  const botUsername = ctx.me.username;
+ const botUsername = ctx.me.username;
   const pmLink = `https://t.me/${botUsername}?start=secret_${sessionId}`;
 
   const keyboard = new InlineKeyboard().url("✉️ OPEN PM TO WRITE SECRET", pmLink);
 
-  await ctx.reply(
+  const sentMsg = await ctx.reply(
     `🔒 <b>Secret Message Initiated!</b>\n\n` +
     `• <b>From:</b> ${sender.first_name}\n` +
     `• <b>To:</b> ${recipient.first_name}\n\n` +
@@ -53,9 +53,8 @@ secretHandler.command("secret", async (ctx) => {
       reply_markup: keyboard,
     }
   );
-});
 
-// Capture the api, chat id, and message id safely for the timer
+  // --- AUTO-DELETE INITIATED CARD AFTER 90 SECONDS ---
   const botApi = ctx.api;
   const chatToCleanId = groupId;
   const messageToDeleteId = sentMsg.message_id;
@@ -67,6 +66,7 @@ secretHandler.command("secret", async (ctx) => {
       // Ignore errors if already deleted
     }
   }, 90000); // 90 seconds
+});
 
 // --- 2. PM START PAYLOAD ROUTE (/start secret_SESSIONID) ---
 secretHandler.use(async (ctx, next) => {
@@ -167,7 +167,7 @@ secretHandler.callbackQuery(/^ready_send_(.+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `🚀 <b>Mode Activated!</b>\n\n` +
-    `Now, simply <b>send your secret message</b> (Text, Photo, Video, GIF, Sticker, Audio, or File) right here in this chat.\n\n`,
+    `Now, simply <b>send your secret message</b> (Text, Photo, Video, GIF, Sticker, Audio, or File) right here in this chat.`,
     { parse_mode: "HTML" }
   );
   await ctx.answerCallbackQuery();
