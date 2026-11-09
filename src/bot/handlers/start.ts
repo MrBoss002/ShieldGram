@@ -19,26 +19,48 @@ async function checkIsAdmin(ctx: Context, groupId: number, userId: number): Prom
 startHandler.command("start", async (ctx) => {
   if (ctx.chat.type !== "private") return;
 
-  // --- RECORD UNIQUE USER ---
-  if (ctx.from) {
-    await User.findOneAndUpdate(
-      { userId: ctx.from.id },
-      {
-        userId: ctx.from.id,
+  const currentUserId = ctx.from?.id;
+  const startPayload = ctx.match; // e.g. "ref_12345", "secret_xyz", or "config_123"
+
+  // --- SILENT USER REGISTRATION & REFERRAL TRACKING ---
+  if (ctx.from && currentUserId) {
+    const existingUser = await User.findOne({ userId: currentUserId });
+
+    if (!existingUser) {
+      let referrerId: number | undefined = undefined;
+
+      // Check if user started via a referral link silently
+      if (startPayload && startPayload.startsWith("ref_")) {
+        const parsedRefId = parseInt(startPayload.replace("ref_", ""), 10);
+        if (!isNaN(parsedRefId) && parsedRefId !== currentUserId) {
+          const referrerExists = await User.findOne({ userId: parsedRefId });
+          if (referrerExists) {
+            referrerId = parsedRefId;
+            // Reward referrer with +2 points and increment referral count silently
+            await User.updateOne(
+              { userId: parsedRefId },
+              { $inc: { points: 2, referralCount: 1 } }
+            );
+          }
+        }
+      }
+
+      // Create new user with 5 welcome points quietly
+      await User.create({
+        userId: currentUserId,
         username: ctx.from.username,
         firstName: ctx.from.first_name || "User",
-      },
-      { upsert: true, new: true }
-    ).catch((err) => console.error("[User Tracking Error]:", err));
+        points: 5, // Welcome bonus
+        referredBy: referrerId,
+      }).catch((err) => console.error("[User Tracking Error]:", err));
+    }
   }
-
-  const startPayload = ctx.match;
 
   // --- 1. DEEP LINK CONFIG ROUTE (/start config_GROUPID) ---
   if (startPayload && startPayload.startsWith("config_")) {
     const groupIdStr = startPayload.replace("config_", "");
     const groupId = parseInt(groupIdStr, 10);
-    const userId = ctx.from!.id;
+    const userId = currentUserId!;
 
     if (isNaN(groupId)) {
       return ctx.reply("⚠️ <b>Invalid group parameter provided.</b>", { parse_mode: "HTML" });
@@ -70,7 +92,13 @@ startHandler.command("start", async (ctx) => {
     );
   }
 
-  // --- 2. DEFAULT LANDING MENU ---
+  // --- 2. DEEP LINK SECRET ROUTE (/start secret_SESSIONID) ---
+  if (startPayload && startPayload.startsWith("secret_")) {
+    // Handled by the secret handler middleware
+    return;
+  }
+
+  // --- 3. DEFAULT CLEAN LANDING MENU ---
   const firstName = ctx.from?.first_name || "User";
 
   const welcomeText =
