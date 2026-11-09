@@ -5,6 +5,9 @@ export interface IUser extends Document {
   username?: string;
   firstName: string;
   joinedAt: Date;
+  points: number;
+  referredBy?: number;
+  referralCount: number;
 }
 
 const userSchema = new Schema<IUser>({
@@ -12,6 +15,9 @@ const userSchema = new Schema<IUser>({
   username: { type: String },
   firstName: { type: String, required: true },
   joinedAt: { type: Date, default: Date.now },
+  points: { type: Number, default: 5 },          
+  referredBy: { type: Number },                 
+  referralCount: { type: Number, default: 0 },  
 });
 
 export const User = model<IUser>("User", userSchema);
