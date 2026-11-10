@@ -23,11 +23,21 @@ antiBotHandler.on("chat_member", async (ctx, next) => {
       return await next();
     }
 
+    // Bypass if the action was performed anonymously by a channel/group
+    if (ctx.senderChat) {
+      return await next();
+    }
+
     // Find out who invited/added them (ctx.from represents the user who performed the action)
     const inviter = ctx.from;
     
     // If we can't determine who invited them, or if it's the bot itself, pass through
     if (!inviter || inviter.id === addedMember.id) {
+      return await next();
+    }
+
+    // Bypass for Telegram's anonymous admin placeholder
+    if (inviter.id === 1087968) {
       return await next();
     }
 
@@ -56,7 +66,7 @@ antiBotHandler.on("chat_member", async (ctx, next) => {
         { parse_mode: "HTML" }
       );
 
-      // Auto-delete alert after 7 seconds to keep chat tidy
+      // Auto-delete alert after 9 seconds to keep chat tidy
       setTimeout(async () => {
         try {
           await ctx.api.deleteMessage(chatId, alertMsg.message_id);
