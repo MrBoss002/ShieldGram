@@ -18,8 +18,8 @@ antiSpamHandler.on("message", async (ctx, next) => {
       return await next();
     }
 
-    // Bypass if the message is sent anonymously by a channel/group (ctx.sender_chat exists)
-    if (ctx.sender_chat) {
+    // Bypass if the message is sent anonymously by a channel/group
+    if (ctx.senderChat) {
       return await next();
     }
 
