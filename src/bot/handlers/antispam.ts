@@ -14,7 +14,16 @@ const MAX_TEXT_LENGTH = 300;  // Max characters allowed for longtext filter
 
 antiSpamHandler.on("message", async (ctx, next) => {
   try {
-    if (!ctx.chat || !ctx.from || ctx.chat.type === "private") {
+    if (!ctx.chat || ctx.chat.type === "private") {
+      return await next();
+    }
+
+    // Bypass if the message is sent anonymously by a channel/group (ctx.sender_chat exists)
+    if (ctx.sender_chat) {
+      return await next();
+    }
+
+    if (!ctx.from) {
       return await next();
     }
 
@@ -27,7 +36,11 @@ antiSpamHandler.on("message", async (ctx, next) => {
       return await next();
     }
 
-    // 2. Check if user is an admin (Admins are exempt)
+    // 2. Check if user is an admin, anonymous admin placeholder (1087968), or creator (Admins are exempt)
+    if (userId === 1087968) {
+      return await next();
+    }
+
     try {
       const member = await ctx.api.getChatMember(chatId, userId);
       if (["creator", "administrator"].includes(member.status)) {
@@ -35,7 +48,7 @@ antiSpamHandler.on("message", async (ctx, next) => {
       }
     } catch {}
 
-    const messageText = ctx.message.text || ctx.message.caption || "";
+    const messageText = ctx.message?.text || ctx.message?.caption || "";
 
     // 3. Flood Guard Check (Placed first to catch rapid-fire spam effectively)
     const trackerKey = `${userId}_${chatId}`;
