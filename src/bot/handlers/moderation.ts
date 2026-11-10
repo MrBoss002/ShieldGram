@@ -4,9 +4,12 @@ import { Warn } from "../../models/warn";
 
 export const moderationHandler = new Composer();
 
-// Helper to check if user is an admin or creator
+// Helper to check if user is an admin or creator (handles anonymous admins too)
 async function isGroupAdmin(ctx: any): Promise<boolean> {
+  if (ctx.senderChat) return true; // Anonymous admin / channel sender
   if (!ctx.from) return false;
+  if (ctx.from.id === 1087968) return true; // Telegram anonymous admin placeholder ID
+
   try {
     const member = await ctx.getChatMember(ctx.from.id);
     return ["creator", "administrator"].includes(member.status);
@@ -17,6 +20,7 @@ async function isGroupAdmin(ctx: any): Promise<boolean> {
 
 // Helper to check if a specific user ID is an admin
 async function checkIsAdminById(ctx: Context, chatId: number, userId: number): Promise<boolean> {
+  if (userId === 1087968) return true;
   try {
     const member = await ctx.api.getChatMember(chatId, userId);
     return ["creator", "administrator"].includes(member.status);
@@ -496,6 +500,7 @@ moderationHandler.on("message", async (ctx, next) => {
 
   const { features } = config;
 
+  // Bypass if sender is an admin or anonymous admin / channel sender
   const isAdmin = await isGroupAdmin(ctx);
   if (isAdmin) return next();
 
