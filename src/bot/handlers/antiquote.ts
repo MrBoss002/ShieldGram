@@ -6,12 +6,26 @@ export const antiQuoteHandler = new Composer();
 
 antiQuoteHandler.on("message", async (ctx, next) => {
   try {
-    if (!ctx.chat || !ctx.from || ctx.chat.type === "private") {
+    if (!ctx.chat || ctx.chat.type === "private") {
+      return await next();
+    }
+
+    // Bypass if sent anonymously by the group/channel itself
+    if (ctx.senderChat) {
+      return await next();
+    }
+
+    if (!ctx.from) {
       return await next();
     }
 
     const userId = ctx.from.id;
     const chatId = ctx.chat.id;
+
+    // Bypass for Telegram's anonymous admin placeholder
+    if (userId === 1087968) {
+      return await next();
+    }
 
     // 1. Check feature toggle status (Default to enabled if undefined)
     const config = await GroupConfig.findOne({ groupId: chatId });
