@@ -9,16 +9,20 @@ interface Environment {
   UPDATES_CHANNEL: string;
   SUPPORT_GROUP: string;
   DEV_GITHUB: string;
+  OWNER_ID: number;
+  ADMIN_LOG_CHANNEL: string;
 }
 
 const getEnv = (): Environment => {
   const {
     BOT_TOKEN,
     MONGO_URI,
-    ADMIN_HANDLE = "MrBossTG",
+    ADMIN_HANDLE = "@MrBossTG",
     UPDATES_CHANNEL = "https://t.me/MrBossBotz",
     SUPPORT_GROUP = "https://t.me/MrBossSupport",
     DEV_GITHUB = "https://github.com/MrBoss002",
+    OWNER_ID,
+    ADMIN_LOG_CHANNEL = "-1003986146136",
   } = process.env;
 
   if (!BOT_TOKEN) {
@@ -36,6 +40,8 @@ const getEnv = (): Environment => {
     UPDATES_CHANNEL,
     SUPPORT_GROUP,
     DEV_GITHUB,
+    OWNER_ID: OWNER_ID ? parseInt(OWNER_ID, 10) : 0,
+    ADMIN_LOG_CHANNEL,
   };
 };
 
