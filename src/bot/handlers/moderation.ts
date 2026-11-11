@@ -4,11 +4,26 @@ import { Warn } from "../../models/warn";
 
 export const moderationHandler = new Composer();
 
-// Helper to check if user is an admin or creator (handles anonymous admins too)
+// Helper to check if the current sender is an admin, creator, or anonymous group admin
+async function isUserOrAnonymousAdmin(ctx: Context): Parameters<any>[0] extends never ? never : Promise<boolean> {
+  if (ctx.senderChat) return true; // Anonymous group sender
+  const userId = ctx.from?.id;
+  if (!userId) return false;
+  if (userId === 1087968) return true; // Telegram anonymous admin placeholder ID
+
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat!.id, userId);
+    return ["creator", "administrator"].includes(member.status);
+  } catch {
+    return false;
+  }
+}
+
+// Helper to check if user is an admin or creator (for security middleware)
 async function isGroupAdmin(ctx: any): Promise<boolean> {
-  if (ctx.senderChat) return true; // Anonymous admin / channel sender
+  if (ctx.senderChat) return true;
   if (!ctx.from) return false;
-  if (ctx.from.id === 1087968) return true; // Telegram anonymous admin placeholder ID
+  if (ctx.from.id === 1087968) return true;
 
   try {
     const member = await ctx.getChatMember(ctx.from.id);
@@ -145,17 +160,19 @@ async function parseTargetAndReason(ctx: Context): Promise<{
 moderationHandler.command("warn", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser, reason } = await parseTargetAndReason(ctx);
   if (!targetUser) {
     return ctx.reply("⚠️ Please reply to a user's message or provide a User ID/Username to warn.\nExample: <code>/warn 123456789 spamming</code>", { parse_mode: "HTML" });
   }
 
-  if (targetUser.id === adminId) {
+  if (targetUser.id === adminId && adminId !== 0) {
     return ctx.reply("❌ You cannot warn yourself!");
   }
 
@@ -175,7 +192,7 @@ moderationHandler.command("warn", async (ctx) => {
     warnRecord.reasons.push(reason);
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     if (warnRecord.warnCount >= 3) {
       await ctx.api.restrictChatMember(groupId, targetUser.id, {
@@ -224,10 +241,12 @@ moderationHandler.command("warn", async (ctx) => {
 moderationHandler.command("unwarn", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser } = await parseTargetAndReason(ctx);
   if (!targetUser) {
@@ -247,7 +266,7 @@ moderationHandler.command("unwarn", async (ctx) => {
     await warnRecord.save();
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `✅ <b>Warning Removed</b>\n\n` +
@@ -267,17 +286,19 @@ moderationHandler.command("unwarn", async (ctx) => {
 moderationHandler.command("mute", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser, reason } = await parseTargetAndReason(ctx);
   if (!targetUser || targetUser.id === 0) {
     return ctx.reply("⚠️ Please reply to a user's message or provide a valid User ID to mute.");
   }
 
-  if (targetUser.id === adminId) {
+  if (targetUser.id === adminId && adminId !== 0) {
     return ctx.reply("❌ You cannot mute yourself!");
   }
 
@@ -301,7 +322,7 @@ moderationHandler.command("mute", async (ctx) => {
     });
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `🤐 <b>User Muted</b>\n\n` +
@@ -321,10 +342,12 @@ moderationHandler.command("mute", async (ctx) => {
 moderationHandler.command("unmute", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser } = await parseTargetAndReason(ctx);
   if (!targetUser || targetUser.id === 0) {
@@ -347,7 +370,7 @@ moderationHandler.command("unmute", async (ctx) => {
     });
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `🔊 <b>User Unmuted</b>\n\n` +
@@ -366,17 +389,19 @@ moderationHandler.command("unmute", async (ctx) => {
 moderationHandler.command("kick", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser, reason } = await parseTargetAndReason(ctx);
   if (!targetUser || targetUser.id === 0) {
     return ctx.reply("⚠️ Please reply to a user's message or provide a valid User ID to kick.");
   }
 
-  if (targetUser.id === adminId) {
+  if (targetUser.id === adminId && adminId !== 0) {
     return ctx.reply("❌ You cannot kick yourself!");
   }
 
@@ -391,7 +416,7 @@ moderationHandler.command("kick", async (ctx) => {
     await ctx.api.unbanChatMember(groupId, targetUser.id, { only_if_banned: true });
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `👢 <b>User Kicked</b>\n\n` +
@@ -411,17 +436,19 @@ moderationHandler.command("kick", async (ctx) => {
 moderationHandler.command("ban", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser, reason } = await parseTargetAndReason(ctx);
   if (!targetUser || targetUser.id === 0) {
     return ctx.reply("⚠️ Please reply to a user's message or provide a valid User ID to ban.");
   }
 
-  if (targetUser.id === adminId) {
+  if (targetUser.id === adminId && adminId !== 0) {
     return ctx.reply("❌ You cannot ban yourself!");
   }
 
@@ -435,7 +462,7 @@ moderationHandler.command("ban", async (ctx) => {
     await ctx.api.banChatMember(groupId, targetUser.id);
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `🚫 <b>User Banned</b>\n\n` +
@@ -455,10 +482,12 @@ moderationHandler.command("ban", async (ctx) => {
 moderationHandler.command("unban", async (ctx) => {
   if (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup") return;
 
-  const adminId = ctx.from!.id;
-  if (!(await checkIsAdminById(ctx, ctx.chat.id, adminId))) {
+  if (!(await isUserOrAnonymousAdmin(ctx))) {
     return ctx.reply("⚠️ You must be an Admin to use this command.");
   }
+
+  const adminId = ctx.from?.id || 0;
+  const adminName = ctx.senderChat ? "Anonymous Admin" : (ctx.from?.first_name || "Admin");
 
   const { targetUser } = await parseTargetAndReason(ctx);
   if (!targetUser || targetUser.id === 0) {
@@ -471,7 +500,7 @@ moderationHandler.command("unban", async (ctx) => {
     await ctx.api.unbanChatMember(groupId, targetUser.id, { only_if_banned: true });
 
     const userMention = `<a href="tg://user?id=${targetUser.id}">${targetUser.first_name}</a>`;
-    const adminMention = `<a href="tg://user?id=${adminId}">${ctx.from!.first_name}</a>`;
+    const adminMention = adminId !== 0 ? `<a href="tg://user?id=${adminId}">${adminName}</a>` : adminName;
 
     const sentMsg = await ctx.reply(
       `🔓 <b>User Unbanned</b>\n\n` +
