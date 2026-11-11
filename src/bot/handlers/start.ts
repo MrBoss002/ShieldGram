@@ -36,11 +36,24 @@ startHandler.command("start", async (ctx) => {
           const referrerExists = await User.findOne({ userId: parsedRefId });
           if (referrerExists) {
             referrerId = parsedRefId;
-            // Reward referrer with +2 points and increment referral count silently
+            // Reward referrer with +2 points and increment referral count
             await User.updateOne(
               { userId: parsedRefId },
               { $inc: { points: 2, referralCount: 1 } }
             );
+
+            // Send confirmation message to the referrer
+            try {
+              await ctx.api.sendMessage(
+                parsedRefId,
+                `🎉 <b>New Referral Joined!</b>\n\n` +
+                `A new user has joined through your referral link!\n` +
+                `You have been rewarded <b>+2 Points</b> for your referral bonus. 💎`,
+                { parse_mode: "HTML" }
+              );
+            } catch (err) {
+              // Ignore if the referrer hasn't started the bot in PM yet
+            }
           }
         }
       }
@@ -148,6 +161,82 @@ startHandler.command("stats", async (ctx) => {
   } catch (error) {
     console.error("[Stats Command Error]:", error);
     await ctx.reply("❌ Failed to retrieve bot statistics.");
+  }
+});
+
+// --- OWNER BONUS COMMAND ---
+startHandler.command("bonus", async (ctx) => {
+  if (ctx.chat.type !== "private") {
+    return ctx.reply("⚠️ <b>The /bonus command must be used in private chat with the bot.</b>", { parse_mode: "HTML" });
+  }
+
+  const currentUserId = ctx.from?.id;
+  if (!currentUserId || currentUserId !== env.OWNER_ID) {
+    return ctx.reply("❌ <b>Unauthorized!</b> This command is restricted to the bot owner.");
+  }
+
+  let targetUserId: number | undefined;
+  let bonusAmount = 0;
+
+  // Case 1: Command sent as a Reply to a user's message
+  if (ctx.message?.reply_to_message?.from) {
+    targetUserId = ctx.message.reply_to_message.from.id;
+    const args = ctx.match ? (ctx.match as string).trim().split(/\s+/) : [];
+    bonusAmount = parseInt(args[0], 10);
+  } 
+  // Case 2: Command sent with arguments (e.g., /bonus 123456789 50)
+  else if (ctx.match) {
+    const args = (ctx.match as string).trim().split(/\s+/);
+    targetUserId = parseInt(args[0], 10);
+    bonusAmount = parseInt(args[1], 10);
+  }
+
+  if (!targetUserId || isNaN(targetUserId) || isNaN(bonusAmount) || bonusAmount <= 0) {
+    return ctx.reply(
+      "⚠️ <b>Invalid usage!</b>\n\n" +
+      "• <i>Reply to a user:</i> <code>/bonus 50</code>\n" +
+      "• <i>Or use User ID:</i> <code>/bonus 123456789 50</code>",
+      { parse_mode: "HTML" }
+    );
+  }
+
+  try {
+    let targetUser = await User.findOne({ userId: targetUserId });
+    if (!targetUser) {
+      targetUser = await User.create({
+        userId: targetUserId,
+        firstName: "User",
+        points: 5,
+      });
+    }
+
+    targetUser.points += bonusAmount;
+    await targetUser.save();
+
+    await ctx.reply(
+      `✅ <b>Bonus Awarded Successfully!</b>\n\n` +
+      `• <b>User ID:</b> <code>${targetUserId}</code>\n` +
+      `• <b>Amount:</b> <code>+${bonusAmount} Points</code>\n` +
+      `• <b>New Balance:</b> <code>${targetUser.points} pts</code>`,
+      { parse_mode: "HTML" }
+    );
+
+    const channelLink = env.UPDATES_CHANNEL || "https://t.me/MrBossBotz";
+    try {
+      await ctx.api.sendMessage(
+        targetUserId,
+        `🎁 <b>Congratulations!</b>\n\n` +
+        `You got a bonus of <b>${bonusAmount} points</b> from admin <b>@MrBossTG</b>!\n\n` +
+        `📢 Stay tuned for more updates on our channel: ${channelLink}`,
+        { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+      );
+    } catch (dmErr) {
+      console.error("[Bonus DM Notification Error]:", dmErr);
+    }
+
+  } catch (err) {
+    console.error("[Bonus Command Error]:", err);
+    await ctx.reply("❌ Failed to process the bonus reward.");
   }
 });
 
