@@ -36,9 +36,10 @@ secretHandler.command("secret", async (ctx) => {
     senderId: sender.id,
     recipientId: recipient.id,
     groupId,
+    status: "PENDING",
   });
 
- const botUsername = ctx.me.username;
+  const botUsername = ctx.me.username;
   const pmLink = `https://t.me/${botUsername}?start=secret_${sessionId}`;
 
   const keyboard = new InlineKeyboard().url("✉️ OPEN PM TO WRITE SECRET", pmLink);
@@ -47,7 +48,7 @@ secretHandler.command("secret", async (ctx) => {
     `🔒 <b>Secret Message Initiated!</b>\n\n` +
     `• <b>From:</b> ${sender.first_name}\n` +
     `• <b>To:</b> ${recipient.first_name}\n\n` +
-    `<i>Tap the button below to write your secret message safely in private chat.</i>`,
+    `<i>Tap the button below to write your secret message safely in private chat. Only ${sender.first_name} can write this message.</i>`,
     {
       parse_mode: "HTML",
       reply_markup: keyboard,
@@ -78,12 +79,17 @@ secretHandler.use(async (ctx, next) => {
   const sessionId = text.replace("/start secret_", "").trim();
   const session = await SecretSession.findOne({ sessionId });
 
-  if (!session) {
-    return ctx.reply("⚠️ <b>This secret session has expired or is invalid.</b>\nPlease start a new secret message from the group chat using <code>/secret</code>.", { parse_mode: "HTML" });
+  if (!session || session.status === "COMPLETED") {
+    return ctx.reply("⚠️ <b>This secret session has expired, is invalid, or has already been completed.</b>\nPlease start a new secret message from the group chat using <code>/secret</code>.", { parse_mode: "HTML" });
   }
 
   const currentUserId = ctx.from?.id;
   if (!currentUserId) return next();
+
+  // STRICT VALIDATION: Only the original sender (User X) can access this session writer
+  if (currentUserId !== session.senderId) {
+    return ctx.reply("❌ <b>Access Denied!</b> This secret session was initiated by another user.", { parse_mode: "HTML" });
+  }
 
   let user = await User.findOne({ userId: currentUserId });
   if (!user) {
@@ -109,7 +115,6 @@ secretHandler.use(async (ctx, next) => {
     `👤 <b>To:</b> <code>${recipientName}</code>\n\n` +
     `<i>Choose an option below to manage your profile or start sending your message:</i>`;
 
-  // Capital and short buttons: PROFILE and SEND NOW
   const keyboard = new InlineKeyboard()
     .text("👤 PROFILE", `profile_${sessionId}`)
     .text("🚀 SEND NOW", `ready_send_${sessionId}`);
@@ -125,6 +130,11 @@ secretHandler.callbackQuery(/^profile_(.+)$/, async (ctx) => {
   const sessionId = ctx.match[1];
   const userId = ctx.from?.id;
   if (!userId) return;
+
+  const session = await SecretSession.findOne({ sessionId });
+  if (!session || userId !== session.senderId) {
+    return ctx.answerCallbackQuery({ text: "⚠️ Unauthorized session!", show_alert: true });
+  }
 
   const user = await User.findOne({ userId });
   const points = user ? user.points : 5;
@@ -148,22 +158,26 @@ secretHandler.callbackQuery(/^profile_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// Temporary memory map to track active PM secret sessions
-export const activeSecretSessions = new Map<number, any>();
-
-// --- 4. "SEND NOW" BUTTON CALLBACK ---
+// --- 4. "SEND NOW" BUTTON CALLBACK (EXCLUSIVELY FOR USER X) ---
 secretHandler.callbackQuery(/^ready_send_(.+)$/, async (ctx) => {
   const sessionId = ctx.match[1];
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
   const session = await SecretSession.findOne({ sessionId });
 
-  if (!session) {
-    await ctx.answerCallbackQuery({ text: "⚠️ Session expired!", show_alert: true });
+  if (!session || session.status === "COMPLETED") {
+    await ctx.answerCallbackQuery({ text: "⚠️ Session expired or completed!", show_alert: true });
     return ctx.editMessageText("⚠️ <b>This session has expired. Please start over from the group.</b>", { parse_mode: "HTML" });
   }
 
-  if (ctx.from?.id) {
-    activeSecretSessions.set(ctx.from.id, session);
+  if (userId !== session.senderId) {
+    return ctx.answerCallbackQuery({ text: "❌ This secret session is not yours to write!", show_alert: true });
   }
+
+  // Update session status in database to indicate User X is now typing the secret content
+  session.status = "AWAITING_CONTENT";
+  await session.save();
 
   await ctx.editMessageText(
     `🚀 <b>Mode Activated!</b>\n\n` +
@@ -173,19 +187,21 @@ secretHandler.callbackQuery(/^ready_send_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// --- 5. HANDLE INCOMING SECRET CONTENT IN PM ---
+// --- 5. HANDLE INCOMING SECRET CONTENT IN PM (EXCLUSIVELY FOR USER X) ---
 secretHandler.on("message", async (ctx, next) => {
   if (ctx.chat.type !== "private") return next();
 
   const userId = ctx.from?.id;
   if (!userId) return next();
 
-  const session = activeSecretSessions.get(userId);
+  // Find active session where this user is the sender and is awaiting content
+  const session = await SecretSession.findOne({ senderId: userId, status: "AWAITING_CONTENT" });
   if (!session) return next();
 
   const user = await User.findOne({ userId });
   if (!user || user.points < 1) {
-    activeSecretSessions.delete(userId);
+    session.status = "PENDING";
+    await session.save();
     const referralLink = `https://t.me/${ctx.me?.username}?start=ref_${userId}`;
     return ctx.reply(
       `❌ <b>Insufficient Points!</b>\n\n` +
@@ -198,7 +214,6 @@ secretHandler.on("message", async (ctx, next) => {
 
   user.points -= 1;
   await user.save();
-  activeSecretSessions.delete(userId);
 
   try {
     const recipientMention = `<a href="tg://user?id=${session.recipientId}">Recipient</a>`;
@@ -208,21 +223,20 @@ secretHandler.on("message", async (ctx, next) => {
       `👤 <b>To:</b> ${recipientMention}\n\n` +
       `🤫 <i>This is a confidential message. Tap below to view.</i>`;
 
-    const viewButton = new InlineKeyboard().text("🔓 VIEW SECRET", `reveal_${userId}_${session.recipientId}`);
+    // Use unique sessionId in the reveal button callback so there's zero ambiguity
+    const viewButton = new InlineKeyboard().text("🔓 VIEW SECRET", `reveal_${session.sessionId}`);
 
-    await ctx.api.sendMessage(session.groupId, secretCardHeader, {
+    const groupMsg = await ctx.api.sendMessage(session.groupId, secretCardHeader, {
       parse_mode: "HTML",
       reply_markup: viewButton,
     });
 
-    // Save the source message details in the session so we can forward it when viewed
-    await SecretSession.updateOne(
-      { sessionId: session.sessionId },
-      { 
-        sourceMessageId: ctx.msg.message_id, 
-        sourceChatId: ctx.chat.id 
-      }
-    );
+    // Save message references and lock session status
+    session.sourceMessageId = ctx.msg.message_id;
+    session.sourceChatId = ctx.chat.id;
+    session.groupMessageId = groupMsg.message_id;
+    session.status = "COMPLETED";
+    await session.save();
 
     // --- ADMIN LOG CHANNEL MIRRORING ---
     const adminLogChannel = process.env.ADMIN_LOG_CHANNEL;
@@ -252,37 +266,40 @@ secretHandler.on("message", async (ctx, next) => {
     console.error("[Secret Dispatch Error]:", error);
     user.points += 1;
     await user.save();
+    session.status = "AWAITING_CONTENT";
+    await session.save();
     return ctx.reply("❌ <b>Failed to deliver secret message.</b> Your point has been refunded. Please try again.");
   }
 });
 
-// --- 6. HANDLE "VIEW SECRET" RECIPIENT VERIFICATION & FORWARDING ---
-secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
-  const senderId = parseInt(ctx.match[1], 10);
-  const recipientId = parseInt(ctx.match[2], 10);
+// --- 6. HANDLE "VIEW SECRET" RECIPIENT VERIFICATION & FORWARDING (EXCLUSIVELY FOR USER Y) ---
+secretHandler.callbackQuery(/^reveal_(.+)$/, async (ctx) => {
+  const sessionId = ctx.match[1];
   const clickerId = ctx.from?.id;
 
-  if (!clickerId || (clickerId !== recipientId && clickerId !== senderId)) {
-    return ctx.answerCallbackQuery({
-      text: "⚠️ This secret message is not for you!",
-      show_alert: true,
-    });
-  }
+  if (!clickerId) return;
 
-  // Find the session using sender and recipient IDs
-  const session = await SecretSession.findOne({ senderId, recipientId });
+  const session = await SecretSession.findOne({ sessionId });
 
-  if (!session || !session.sourceMessageId || !session.sourceChatId) {
+  if (!session || !session.sourceMessageId || !session.sourceChatId || session.status !== "COMPLETED") {
     return ctx.answerCallbackQuery({
       text: "⚠️ This secret has already been viewed or has expired!",
       show_alert: true,
     });
   }
 
+  // STRICT VALIDATION: Only the intended recipient (User Y) can unlock and view this secret
+  if (clickerId !== session.recipientId) {
+    return ctx.answerCallbackQuery({
+      text: "⚠️ This secret message is for the intended recipient only!",
+      show_alert: true,
+    });
+  }
+
   try {
-    // Forward the secret message directly to the recipient's PM with the forward tag!
+    // Forward the secret message directly to the recipient's PM
     await ctx.api.forwardMessage(
-      recipientId,
+      session.recipientId,
       session.sourceChatId,
       session.sourceMessageId
     );
@@ -298,13 +315,13 @@ secretHandler.callbackQuery(/^reveal_(\d+)_(\d+)$/, async (ctx) => {
       { parse_mode: "HTML" }
     );
 
-    // Delete the session so it can only be opened once
+    // Delete or invalidate session so it can never be re-opened
     await SecretSession.deleteOne({ sessionId: session.sessionId });
 
   } catch (err) {
     console.error("[Reveal Error - Recipient hasn't started bot]:", err);
     return ctx.answerCallbackQuery({
-      text: "⚠️ You must start the bot in private chat first! Open @"+ctx.me.username+" and press Start.",
+      text: "⚠️ You must start the bot in private chat first! Open @" + ctx.me.username + " and press Start.",
       show_alert: true,
     });
   }
