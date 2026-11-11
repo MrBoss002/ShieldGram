@@ -7,6 +7,8 @@ export interface ISecretSession extends Document {
   groupId: number;
   sourceMessageId?: number;
   sourceChatId?: number;
+  groupMessageId?: number;
+  status?: string;
   createdAt: Date;
 }
 
@@ -17,6 +19,8 @@ const secretSessionSchema = new Schema<ISecretSession>({
   groupId: { type: Number, required: true },
   sourceMessageId: { type: Number },
   sourceChatId: { type: Number },
+  groupMessageId: { type: Number },
+  status: { type: String, default: "PENDING" },
   createdAt: { 
     type: Date, 
     default: Date.now, 
