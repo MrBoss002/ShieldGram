@@ -27,9 +27,9 @@ antiQuoteHandler.on("message", async (ctx, next) => {
       return await next();
     }
 
-    // 1. Check feature toggle status (Default to enabled if undefined)
+    // 1. Check feature toggle status (SAFE: Default to disabled if no config or toggle is off)
     const config = await GroupConfig.findOne({ groupId: chatId });
-    if (config && config.features?.antiQuote && !config.features.antiQuote.enabled) {
+    if (!config || !config.features?.antiQuote?.enabled) {
       return await next();
     }
 
@@ -88,15 +88,12 @@ antiQuoteHandler.on("message", async (ctx, next) => {
       }
     }
 
-    // 6. Check reply / quoted message target
+    // 6. Check reply / quoted message target (Only flag if quoting a true external forward)
     if (!isExternalQuote && msg.reply_to_message) {
       const reply = msg.reply_to_message;
       if (reply.forward_from_chat || reply.forward_origin || reply.external_reply) {
         isExternalQuote = true;
         quoteSourceType = "a channel/group post";
-      } else if (reply.from && reply.from.is_bot && reply.from.id !== ctx.me.id) {
-        isExternalQuote = true;
-        quoteSourceType = "a bot message";
       }
     }
 
