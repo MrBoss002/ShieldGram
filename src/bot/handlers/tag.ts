@@ -3,6 +3,9 @@ import { GroupConfig } from "../../models/GroupConfig";
 
 export const tagCommandHandler = new Composer();
 
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 tagCommandHandler.command("tag", async (ctx) => {
   try {
     if (!ctx.chat || ctx.chat.type === "private" || !ctx.from) {
@@ -11,7 +14,7 @@ tagCommandHandler.command("tag", async (ctx) => {
 
     const chatId = ctx.chat.id;
     const senderId = ctx.from.id;
-    const rawTag = ctx.match.trim(); // Everything after "/tag "
+    const rawTag = ctx.match.trim();
 
     // 1. Validate tag length (Telegram limit is 16 characters)
     if (rawTag.length > 16) {
@@ -34,33 +37,32 @@ tagCommandHandler.command("tag", async (ctx) => {
       targetUserId = replyTarget.id;
       targetName = replyTarget.first_name;
     } else {
-      // User is trying to set their own tag -> check if self-tagging is allowed
-      const config = await GroupConfig.findOne({ groupId: chatId }).lean();
-      const allowSelfTag = config?.features?.allowSelfTag ?? false; // Default OFF
+      // Safe lookup so TypeScript doesn't fail before GroupConfig schema is updated
+      const config = (await GroupConfig.findOne({ groupId: chatId }).lean()) as any;
+      const allowSelfTag = config?.features?.allowSelfTag ?? false;
 
       if (!isAdmin && !allowSelfTag) {
         return await ctx.reply("⚠️ Self-tagging is currently disabled in this group.");
       }
     }
 
-    // 4. Call Telegram API to set or remove the tag
-    await ctx.api.setChatMemberTag(chatId, targetUserId, {
-      tag: rawTag, // Empty string "" automatically removes the tag
-    });
+    // 4. Pass rawTag directly as a string (matches your grammY version's signature)
+    await ctx.api.setChatMemberTag(chatId, targetUserId, rawTag);
+
+    const safeName = escapeHtml(targetName);
 
     if (rawTag === "") {
-      await ctx.reply(`✅ Removed tag for <b>${targetName}</b>.`, { parse_mode: "HTML" });
+      await ctx.reply(`✅ Removed tag for <b>${safeName}</b>.`, { parse_mode: "HTML" });
     } else {
       await ctx.reply(
-        `🏷️ Updated tag for <b>${targetName}</b> to: <code>${rawTag}</code>`,
+        `🏷️ Updated tag for <b>${safeName}</b> to: <code>${escapeHtml(rawTag)}</code>`,
         { parse_mode: "HTML" }
       );
     }
   } catch (error: any) {
     console.error("[Tag Command Error]:", error);
-    // Common error if bot lacks "can_manage_tags" or emojis were used
     await ctx.reply(
-      "❌ Failed to update tag. Make sure I have the <b>Manage Tags</b> admin permission and the tag contains no emojis.",
+      "❌ Failed to update tag. Make sure I have the <b>Manage Tags</b> admin permission, the target is not an admin, and the tag contains no emojis.",
       { parse_mode: "HTML" }
     );
   }
