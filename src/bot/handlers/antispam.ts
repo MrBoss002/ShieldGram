@@ -10,7 +10,20 @@ const floodTracker = new Map<string, number[]>();
 // Configuration constants
 const FLOOD_LIMIT = 3;        // Max messages allowed...
 const FLOOD_WINDOW_MS = 5000; // ...within 5 seconds
-const MAX_TEXT_LENGTH = 300;  // Max characters allowed for longtext filter
+const MAX_TEXT_LENGTH = 1500; // Increased to 1500 to prevent false-positive deletions of normal paragraphs
+
+// Periodic cleanup of floodTracker to prevent memory leaks (runs every 10 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, timestamps] of floodTracker.entries()) {
+    const activeTimestamps = timestamps.filter((time) => now - time < FLOOD_WINDOW_MS);
+    if (activeTimestamps.length === 0) {
+      floodTracker.delete(key);
+    } else {
+      floodTracker.set(key, activeTimestamps);
+    }
+  }
+}, 10 * 60 * 1000);
 
 antiSpamHandler.on("message", async (ctx, next) => {
   try {
@@ -18,12 +31,7 @@ antiSpamHandler.on("message", async (ctx, next) => {
       return await next();
     }
 
-    // Bypass if the message is sent anonymously by a channel/group
-    if (ctx.senderChat) {
-      return await next();
-    }
-
-    if (!ctx.from) {
+    if (ctx.senderChat || !ctx.from) {
       return await next();
     }
 
@@ -31,12 +39,12 @@ antiSpamHandler.on("message", async (ctx, next) => {
     const chatId = ctx.chat.id;
 
     // 1. Check feature toggle status
-    const config = await GroupConfig.findOne({ groupId: chatId });
+    const config = await GroupConfig.findOne({ groupId: chatId }).lean();
     if (!config || !config.features?.antiSpam?.enabled) {
       return await next();
     }
 
-    // 2. Check if user is an admin, anonymous admin placeholder (1087968), or creator (Admins are exempt)
+    // 2. Check if user is an admin, anonymous admin placeholder (1087968), or creator
     if (userId === 1087968) {
       return await next();
     }
@@ -46,11 +54,13 @@ antiSpamHandler.on("message", async (ctx, next) => {
       if (["creator", "administrator"].includes(member.status)) {
         return await next();
       }
-    } catch {}
+    } catch {
+      // Fallback if API call fails
+    }
 
     const messageText = ctx.message?.text || ctx.message?.caption || "";
 
-    // 3. Flood Guard Check (Placed first to catch rapid-fire spam effectively)
+    // 3. Flood Guard Check
     const trackerKey = `${userId}_${chatId}`;
     const now = Date.now();
     let timestamps = floodTracker.get(trackerKey) || [];
@@ -68,11 +78,9 @@ antiSpamHandler.on("message", async (ctx, next) => {
           ctx.from,
           "sending messages too quickly (flood guard)"
         );
-
         floodTracker.set(trackerKey, []);
         return;
       } catch (err) {
-        // Message might already be deleted by another handler
         return;
       }
     }
@@ -89,7 +97,6 @@ antiSpamHandler.on("message", async (ctx, next) => {
         );
         return;
       } catch (err) {
-        // Message might already be deleted by another handler (e.g. Anti-Link)
         return;
       }
     }
