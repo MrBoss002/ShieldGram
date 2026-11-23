@@ -14,7 +14,6 @@ const appealKeyboard = new InlineKeyboard().url(
   "https://t.me/MrBossSupport"
 );
 
-// Helper to parse User ID & Reason from either a replied message or command arguments
 function extractTargetAndReason(ctx: any): {
   targetUserId: number | null;
   reason: string;
@@ -43,7 +42,6 @@ function extractTargetAndReason(ctx: any): {
   return { targetUserId: null, reason: "" };
 }
 
-// Gatekeeper for owner-only commands
 const isOwner = gbanHandler.filter((ctx) => {
   const ownerId = Number(process.env.OWNER_ID);
   return Boolean(ownerId && ctx.from?.id === ownerId);
@@ -93,7 +91,6 @@ isOwner.command("gban", async (ctx) => {
         await ctx.api.banChatMember(g.groupId, targetUserId);
         successCount++;
 
-        // Send the clean Global Ban card into the group
         await ctx.api
           .sendMessage(g.groupId, alertCard, {
             parse_mode: "HTML",
@@ -101,10 +98,9 @@ isOwner.command("gban", async (ctx) => {
           })
           .catch(() => {});
 
-        // Small pause to avoid Telegram FloodWait limits
         await sleep(60);
       } catch {
-        // Bot might lack ban rights in a specific group; skip smoothly
+        // Skip groups where bot lacks admin rights
       }
     }
 
@@ -170,21 +166,22 @@ isOwner.command("ungban", async (ctx) => {
   }
 });
 
-// 3. Auto-Shield Middleware: Catch globally banned users on join or message
+// 3. Auto-Shield Middleware
 gbanHandler.on(["message", "chat_member"], async (ctx, next) => {
   if (!ctx.chat || (ctx.chat.type !== "group" && ctx.chat.type !== "supergroup")) {
     return await next();
   }
 
-  // Check either the message sender or a newly joined member
-  const userToCheck =
-    ctx.chatMember?.new_chat_member?.user || ctx.from;
+  const userToCheck = ctx.chatMember?.new_chat_member?.user || ctx.from;
 
   if (!userToCheck || userToCheck.is_bot) {
     return await next();
   }
 
-  const banRecord = await GlobalBan.findOne({ userId: userToCheck.id }).lean();
+  // Typecast as any to satisfy TypeScript compilation cleanly
+  const banRecord = (await GlobalBan.findOne({
+    userId: userToCheck.id,
+  }).lean()) as any;
 
   if (banRecord) {
     try {
@@ -193,7 +190,7 @@ gbanHandler.on(["message", "chat_member"], async (ctx, next) => {
       const alertCard =
         "🚨 <b>ShieldGram Global Ban Alert</b>\n\n" +
         `👤 <b>User ID:</b> <code>${userToCheck.id}</code>\n` +
-        `📝 <b>Reason:</b> ${escapeHtml(banRecord.reason)}\n` +
+        `📝 <b>Reason:</b> ${escapeHtml(banRecord.reason || "Global Security Violation")}\n` +
         `⚡ <b>Action:</b> Auto-Banned on Sight\n\n` +
         "<i>Believe this was a mistake? Tap below to appeal.</i>";
 
@@ -204,7 +201,7 @@ gbanHandler.on(["message", "chat_member"], async (ctx, next) => {
     } catch {
       // Bot lacks admin ban rights in this group
     }
-    return; // Stop further processing for this banned user
+    return;
   }
 
   await next();
