@@ -1,4 +1,4 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 import { GroupConfig } from "../../models/GroupConfig";
 
 export const groupsCommandHandler = new Composer();
@@ -91,5 +91,57 @@ isOwner.command("groups", async (ctx) => {
   } catch (error) {
     console.error("[Groups Command Error]:", error);
     await ctx.reply("❌ Failed to fetch live group telemetry.");
+  }
+});
+
+isOwner.command("leave", async (ctx) => {
+  const rawArg = (typeof ctx.match === "string" ? ctx.match : "").trim();
+  const targetChatId = Number(rawArg);
+
+  if (!rawArg || isNaN(targetChatId)) {
+    return await ctx.reply(
+      "⚠️ Provide a valid Group ID.\nExample: <code>/leave -1001234567890</code>",
+      { parse_mode: "HTML" }
+    );
+  }
+
+  let leftTelegram = false;
+
+  try {
+    const addKeyboard = new InlineKeyboard().url(
+      "➕ Add ShieldGram to Group",
+      `https://t.me/${ctx.me.username}?startgroup=true&admin=delete_messages+restrict_members+invite_users+pin_messages+manage_chat`
+    );
+
+    const goodbyeText =
+      "🛡️ <b>ShieldGram Signing Off!</b>\n\n" +
+      "It looks like this group is inactive or I haven't been granted admin permissions to protect it yet — " +
+      "so my owner decided it's time for me to head out.. Goodbye everyone! ♥️\n\n" +
+      "If you'd like to add me back later, tap the button below and make sure to grant me full admin rights! ⚙";
+
+    await ctx.api.sendMessage(targetChatId, goodbyeText, {
+      parse_mode: "HTML",
+      reply_markup: addKeyboard,
+    });
+
+    await ctx.api.leaveChat(targetChatId);
+    leftTelegram = true;
+  } catch (error) {
+    console.error(`[Leave Error for ${targetChatId}]:`, error);
+  }
+
+  // Safely delete ONLY this specific group's document from MongoDB
+  const deleted = await GroupConfig.deleteOne({ groupId: targetChatId });
+
+  if (leftTelegram || deleted.deletedCount > 0) {
+    await ctx.reply(
+      `🚪 Left group <code>${targetChatId}</code> and removed its record from the database.`,
+      { parse_mode: "HTML" }
+    );
+  } else {
+    await ctx.reply(
+      `❌ Could not find group <code>${targetChatId}</code> in Telegram or the database.`,
+      { parse_mode: "HTML" }
+    );
   }
 });
