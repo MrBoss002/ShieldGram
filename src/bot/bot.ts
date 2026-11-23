@@ -23,6 +23,7 @@ import { saveHandler } from "./handlers/save";
 import { infoHandler } from "./handlers/info";
 import { tagCommandHandler } from "./handlers/tag";
 import { groupsCommandHandler } from "./handlers/groups";
+import { gbanHandler } from "./handlers/gban";
 
 // Instantiate the gramY Bot
 export const bot = new Bot(env.BOT_TOKEN);
@@ -58,6 +59,7 @@ bot.use(welcomeHandler); // Handles both direct joins & approved join requests
 bot.use(rulesHandler);
 bot.use(tagCommandHandler);
 bot.use(groupsCommandHandler);
+bot.use(gbanHandler);
 
 // 4. Global Error Handler
 bot.catch((err) => {
